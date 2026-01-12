@@ -1,0 +1,162 @@
+/* ---------- TABLE STYLES ---------- */
+.table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th {
+    background: var(--navy);
+    color: var(--white);
+    padding: 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+td {
+    padding: 14px;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 15px;
+}
+
+tr:hover {
+    background: #f9f9f9;
+}
+
+/* ---------- ROLE BADGES ---------- */
+.role-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.role-admin {
+    background: #ffeaa7;
+    color: #d63031;
+}
+
+.role-teacher {
+    background: #74b9ff;
+    color: #0984e3;
+}
+
+.role-student {
+    background: #a29bfe;
+    color: #6c5ce7;
+}
+
+.role-parent {
+    background: #fd79a8;
+    color: #e84393;
+}
+
+/* ---------- ACTION BUTTONS ---------- */
+.btn-delete {
+    background: #dc3545;
+    color: white;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.btn-delete:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.btn-edit {
+    background: var(--yellow);
+    color: var(--black);
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-edit:hover {
+    background: #ddb300;
+    transform: translateY(-1px);
+}
+
+/* ---------- USER COUNT BADGE ---------- */
+.user-count {
+    background: var(--yellow);
+    color: var(--black);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    display: inline-block;
+    margin-bottom: 20px;
+}
+
+/* ---------- NO USERS MESSAGE ---------- */
+.no-users {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-size: 16px;
+}
+
+.no-users a {
+    color: var(--navy);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.no-users a:hover {
+    color: var(--yellow);
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 768px) {
+    table {
+        font-size: 13px;
+    }
+    
+    th, td {
+        padding: 10px;
+    }
+    
+    .btn-edit, .btn-delete {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+}
+.btn-update {
+    background: var(--navy);
+    color: var(--white);
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-update:hover {
+    background: var(--black);
+    transform: translateY(-1px);
+}
