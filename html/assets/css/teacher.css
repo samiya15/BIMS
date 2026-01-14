@@ -1,0 +1,102 @@
+/* ---------- CURRICULUM CARDS ---------- */
+.curriculum-card {
+    margin-bottom: 30px;
+    border-left-width: 8px;
+}
+
+.curriculum-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid;
+}
+
+/* CBE styling (was CBC) */
+.curriculum-cbe {
+    color: #2ecc71;
+    border-color: #2ecc71;
+}
+
+/* 8-4-4 styling */
+.curriculum-844 {
+    color: #3498db;
+    border-color: #3498db;
+}
+
+/* IGCSE styling */
+.curriculum-igcse {
+    color: #9b59b6;
+    border-color: #9b59b6;
+}
+
+/* ---------- CLASS SECTIONS ---------- */
+.class-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 6px;
+}
+
+.class-header {
+    color: var(--navy);
+    font-size: 18px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: white;
+    border-left: 4px solid var(--yellow);
+    border-radius: 4px;
+}
+
+/* ---------- STUDENT TABLE ---------- */
+.student-table {
+    width: 100%;
+    background: white;
+    border-collapse: collapse;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.student-table thead {
+    background: var(--navy);
+    color: white;
+}
+
+.student-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.student-table td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.student-table tr:hover {
+    background: #f5f5f5;
+}
+
+.student-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* ---------- NO STUDENTS MESSAGE ---------- */
+.no-students {
+    text-align: center;
+    padding: 30px;
+    color: #999;
+    font-style: italic;
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 768px) {
+    .student-table {
+        font-size: 13px;
+    }
+    
+    .student-table th,
+    .student-table td {
+        padding: 8px;
+    }
+}

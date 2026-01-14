@@ -55,7 +55,7 @@ try {
 <div class="sidebar">
     <h2>BIMS Admin</h2>
     <a href="../admin_dashboard.php">Dashboard</a>
-    <a href="../create_user.php">Create User</a>
+    <a href="admin/create_user.php">Create User</a>
     <a href="list_users.php" class="active">List Users</a>
     <a href="../logout.php">Logout</a>
 </div>
