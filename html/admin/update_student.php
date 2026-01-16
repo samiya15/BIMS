@@ -14,13 +14,19 @@ $user_id = (int)($_GET['id'] ?? 0);
 $stmt = $pdo->prepare("
     SELECT 
         u.email,
+        s.id as student_id,
         s.admission_number,
         s.first_name,
         s.last_name,
         s.gender,
         s.status,
         s.curriculum_type_id,
-        s.class_level_id
+        s.class_level_id,
+        s.phone_number,
+        s.residential_area,
+        s.date_of_birth,
+        s.parent_phone,
+        s.parent_email
     FROM users u
     LEFT JOIN students s ON u.id = s.user_id
     WHERE u.id = ?
@@ -44,6 +50,26 @@ $classLevels = $pdo->query("
     ORDER BY level_order
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+/* ---------- FETCH STUDENT'S SUBJECTS ---------- */
+$student_subjects_stmt = $pdo->prepare("
+    SELECT subject_name FROM student_subjects WHERE student_id = ?
+");
+$student_subjects_stmt->execute([$student['student_id']]);
+$student_subjects = $student_subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+/* ---------- FETCH AVAILABLE SUBJECTS FOR STUDENT'S CURRICULUM ---------- */
+$available_subjects = [];
+if ($student['curriculum_type_id']) {
+    $subj_stmt = $pdo->prepare("
+        SELECT subject_name, is_core 
+        FROM curriculum_subjects 
+        WHERE curriculum_type_id = ? 
+        ORDER BY is_core DESC, subject_name
+    ");
+    $subj_stmt->execute([$student['curriculum_type_id']]);
+    $available_subjects = $subj_stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 /* ---------- GET LINKED PARENTS ---------- */
 $linked_parents = [];
 if (!empty($student['admission_number'])) {
@@ -60,71 +86,70 @@ if (!empty($student['admission_number'])) {
 /* ---------- UPDATE ---------- */
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     try {
-        // Check if student already exists
-        $check = $pdo->prepare("SELECT id FROM students WHERE user_id = ?");
-        $check->execute([$user_id]);
-        $exists = $check->fetch();
-
-        if ($exists) {
-            // UPDATE existing student
-            $stmt = $pdo->prepare("
-                UPDATE students SET
-                    admission_number = ?,
-                    first_name = ?,
-                    last_name = ?,
-                    gender = ?,
-                    status = ?,
-                    curriculum_type_id = ?,
-                    class_level_id = ?
-                WHERE user_id = ?
-            ");
-
-            $stmt->execute([
-                $_POST['admission_number'],
-                $_POST['first_name'],
-                $_POST['last_name'],
-                $_POST['gender'],
-                isset($_POST['status']) ? 1 : 0,
-                $_POST['curriculum_type_id'],
-                $_POST['class_level_id'],
-                $user_id
-            ]);
-
-        } else {
-            // INSERT new student
-            $stmt = $pdo->prepare("
-                INSERT INTO students (
-                    user_id,
-                    admission_number,
-                    first_name,
-                    last_name,
-                    gender,
-                    status,
-                    curriculum_type_id,
-                    class_level_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-
-            $stmt->execute([
-                $user_id,
-                $_POST['admission_number'],
-                $_POST['first_name'],
-                $_POST['last_name'],
-                $_POST['gender'],
-                isset($_POST['status']) ? 1 : 0,
-                $_POST['curriculum_type_id'],
-                $_POST['class_level_id']
-            ]);
+        // Update student basic info
+        $stmt = $pdo->prepare("
+            UPDATE students SET
+                admission_number = ?,
+                first_name = ?,
+                last_name = ?,
+                gender = ?,
+                status = ?,
+                curriculum_type_id = ?,
+                class_level_id = ?,
+                phone_number = ?,
+                residential_area = ?,
+                date_of_birth = ?,
+                parent_phone = ?,
+                parent_email = ?
+            WHERE user_id = ?
+        ");
+        $stmt->execute([
+            $_POST['admission_number'],
+            $_POST['first_name'],
+            $_POST['last_name'],
+            $_POST['gender'],
+            isset($_POST['status']) ? 1 : 0,
+            $_POST['curriculum_type_id'],
+            $_POST['class_level_id'],
+            $_POST['phone_number'] ?? null,
+            $_POST['residential_area'] ?? null,
+            $_POST['date_of_birth'] ?? null,
+            $_POST['parent_phone'] ?? null,
+            $_POST['parent_email'] ?? null,
+            $user_id
+        ]);
+        
+        // Update student subjects
+        // Delete old subjects
+        $pdo->prepare("DELETE FROM student_subjects WHERE student_id = ?")->execute([$student['student_id']]);
+        
+        // Insert new subjects
+        if (!empty($_POST['subjects'])) {
+            $insert_stmt = $pdo->prepare("INSERT INTO student_subjects (student_id, subject_name) VALUES (?, ?)");
+            foreach ($_POST['subjects'] as $subject) {
+                $insert_stmt->execute([$student['student_id'], $subject]);
+            }
         }
 
         header("Location: update_student.php?id=$user_id&success=1");
         exit;
-
     } catch (PDOException $e) {
         $error = "Error updating student: " . $e->getMessage();
     }
 }
 
+// Get all subjects for the selected curriculum (for JavaScript)
+$all_curriculum_subjects = [];
+foreach ($curriculums as $curr) {
+    $subj_stmt = $pdo->prepare("
+        SELECT subject_name, is_core 
+        FROM curriculum_subjects 
+        WHERE curriculum_type_id = ? 
+        ORDER BY is_core DESC, subject_name
+    ");
+    $subj_stmt->execute([$curr['id']]);
+    $all_curriculum_subjects[$curr['id']] = $subj_stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 
 <!DOCTYPE html>
@@ -135,6 +160,40 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <title>Update Student</title>
     <link rel="stylesheet" href="../assets/css/admin.css">
     <link rel="stylesheet" href="../assets/css/update_profile.css">
+    <style>
+        .subject-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+        .subject-item {
+            display: flex;
+            align-items: center;
+        }
+        .subject-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+        .subject-item.core {
+            font-weight: 600;
+            color: var(--navy);
+        }
+        .profile-section {
+            background: #fff9e6;
+            padding: 15px;
+            border-left: 4px solid var(--yellow);
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .profile-section h3 {
+            color: var(--navy);
+            margin-bottom: 15px;
+        }
+    </style>
 </head>
 <body>
 
@@ -150,7 +209,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <div class="container">
         <div class="card">
             <h2>Update Student Profile</h2>
-            <p><strong>Email:</strong> <?php echo htmlspecialchars($student['email']); ?></p>
+            <p><strong>Email:</strong> <?php echo htmlspecialchars($student['email']); ?> <em>(Cannot be changed)</em></p>
 
             <?php if (isset($_GET['success'])): ?>
                 <div class="alert-success">✅ Student updated successfully.</div>
@@ -160,47 +219,82 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <div class="alert-error"><?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
 
-           <form method="POST">
-    <label>Admission Number</label>
-    <input type="text" name="admission_number" value="<?php echo htmlspecialchars($student['admission_number'] ?? ''); ?>" required>
+            <form method="POST">
+                <!-- BASIC INFO (Cannot change after creation) -->
+                <div class="profile-section">
+                    <h3>📋 Basic Information</h3>
+                    
+                    <label>Admission Number <em>(Cannot be changed)</em></label>
+                    <input type="text" name="admission_number" value="<?php echo htmlspecialchars($student['admission_number'] ?? ''); ?>" readonly style="background: #f0f0f0;" required>
 
-    <label>First Name</label>
-    <input type="text" name="first_name" value="<?php echo htmlspecialchars($student['first_name'] ?? ''); ?>" required>
+                    <label>First Name <em>(Cannot be changed)</em></label>
+                    <input type="text" name="first_name" value="<?php echo htmlspecialchars($student['first_name'] ?? ''); ?>" readonly style="background: #f0f0f0;" required>
 
-    <label>Last Name</label>
-    <input type="text" name="last_name" value="<?php echo htmlspecialchars($student['last_name'] ?? ''); ?>" required>
+                    <label>Last Name <em>(Cannot be changed)</em></label>
+                    <input type="text" name="last_name" value="<?php echo htmlspecialchars($student['last_name'] ?? ''); ?>" readonly style="background: #f0f0f0;" required>
+                </div>
 
-    <label>Gender</label>
-    <select name="gender" required>
-        <option value="">Select Gender</option>
-        <option value="Male" <?php echo ($student['gender'] ?? '') == 'Male' ? 'selected' : ''; ?>>Male</option>
-        <option value="Female" <?php echo ($student['gender'] ?? '') == 'Female' ? 'selected' : ''; ?>>Female</option>
-    </select>
+                <!-- EDITABLE PROFILE INFO -->
+                <div class="profile-section">
+                    <h3>✏️ Personal Details (Editable)</h3>
+                    
+                    <label>Gender</label>
+                    <select name="gender" required>
+                        <option value="">Select Gender</option>
+                        <option value="Male" <?php echo ($student['gender'] ?? '') == 'Male' ? 'selected' : ''; ?>>Male</option>
+                        <option value="Female" <?php echo ($student['gender'] ?? '') == 'Female' ? 'selected' : ''; ?>>Female</option>
+                    </select>
 
-    <label>Curriculum</label>
-    <select name="curriculum_type_id" id="curriculum" onchange="updateClasses()" required>
-        <option value="">Select Curriculum</option>
-        <?php foreach ($curriculums as $c): ?>
-            <option value="<?php echo $c['id']; ?>" <?php echo ($student['curriculum_type_id'] ?? '') == $c['id'] ? 'selected' : ''; ?>>
-                <?php echo htmlspecialchars($c['name']); ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
+                    <label>Phone Number</label>
+                    <input type="tel" name="phone_number" placeholder="+254..." value="<?php echo htmlspecialchars($student['phone_number'] ?? ''); ?>">
 
-    <label>Class</label>
-    <select name="class_level_id" id="class_level" required>
-        <option value="">Select Class</option>
-    </select>
+                    <label>Residential Area</label>
+                    <input type="text" name="residential_area" placeholder="e.g., Nairobi, Westlands" value="<?php echo htmlspecialchars($student['residential_area'] ?? ''); ?>">
 
-    <label style="display: flex; align-items: center; margin-top: 10px;">
-        <input type="checkbox" name="status" value="1" 
-            <?php echo ($student['status'] ?? 0) ? 'checked' : ''; ?> 
-            style="width: auto; margin-right: 10px;">
-        Active Student
-    </label>
+                    <label>Date of Birth</label>
+                    <input type="date" name="date_of_birth" value="<?php echo htmlspecialchars($student['date_of_birth'] ?? ''); ?>">
 
-    <button type="submit" style="margin-top: 20px;">Save Changes</button>
-</form>
+                    <label>Parent Phone Number</label>
+                    <input type="tel" name="parent_phone" placeholder="+254..." value="<?php echo htmlspecialchars($student['parent_phone'] ?? ''); ?>">
+
+                    <label>Parent Email</label>
+                    <input type="email" name="parent_email" placeholder="parent@email.com" value="<?php echo htmlspecialchars($student['parent_email'] ?? ''); ?>">
+                </div>
+
+                <!-- ACADEMIC INFO -->
+                <label>Curriculum</label>
+                <select name="curriculum_type_id" id="curriculum" onchange="updateClassesAndSubjects()" required>
+                    <option value="">Select Curriculum</option>
+                    <?php foreach ($curriculums as $c): ?>
+                        <option value="<?php echo $c['id']; ?>" <?php echo ($student['curriculum_type_id'] ?? '') == $c['id'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($c['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <label>Class</label>
+                <select name="class_level_id" id="class_level" required>
+                    <option value="">Select Class</option>
+                </select>
+
+                <!-- SUBJECTS -->
+                <div id="subjectsSection" style="<?php echo empty($available_subjects) ? 'display: none;' : ''; ?>">
+                    <label>Subjects</label>
+                    <p class="help-text">Select the subjects this student is studying.</p>
+                    <div id="subjectsGrid" class="subject-grid">
+                        <!-- Subjects will be loaded here by JavaScript -->
+                    </div>
+                </div>
+
+                <label style="display: flex; align-items: center; margin-top: 10px;">
+                    <input type="checkbox" name="status" value="1" 
+                        <?php echo ($student['status'] ?? 0) ? 'checked' : ''; ?> 
+                        style="width: auto; margin-right: 10px;">
+                    Active Student
+                </label>
+
+                <button type="submit" style="margin-top: 20px;">Save Changes</button>
+            </form>
 
             <?php if (!empty($linked_parents)): ?>
                 <div class="linked-info">
@@ -224,50 +318,72 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </div>
     </div>
 </div>
+
 <script>
 const classLevels = <?php echo json_encode($classLevels); ?>;
 const selectedClass = <?php echo json_encode($student['class_level_id']); ?>;
+const allCurriculumSubjects = <?php echo json_encode($all_curriculum_subjects); ?>;
+const studentSubjects = <?php echo json_encode($student_subjects); ?>;
 
-console.log('Class Levels:', classLevels);
-console.log('Selected Class:', selectedClass);
-
-function updateClasses() {
+function updateClassesAndSubjects() {
     const curriculumId = document.getElementById('curriculum').value;
     const classSelect = document.getElementById('class_level');
+    const subjectsSection = document.getElementById('subjectsSection');
+    const subjectsGrid = document.getElementById('subjectsGrid');
 
-    console.log('Selected Curriculum ID:', curriculumId);
-
-    // Clear current options
+    // Update classes
     classSelect.innerHTML = '<option value="">Select Class</option>';
-
-    // Filter and add classes for selected curriculum
-    let count = 0;
     classLevels.forEach(cls => {
-        console.log('Checking class:', cls.name, 'Curriculum:', cls.curriculum_type_id);
-        
         if (cls.curriculum_type_id == curriculumId) {
             const opt = document.createElement('option');
             opt.value = cls.id;
             opt.textContent = cls.name;
-            
-            // If this was previously selected, select it again
-            if (cls.id == selectedClass) {
-                opt.selected = true;
-            }
-            
+            if (cls.id == selectedClass) opt.selected = true;
             classSelect.appendChild(opt);
-            count++;
         }
     });
-
-    console.log('Added', count, 'classes to dropdown');
+    
+    // Update subjects
+    if (curriculumId && allCurriculumSubjects[curriculumId]) {
+        subjectsSection.style.display = 'block';
+        subjectsGrid.innerHTML = '';
+        
+        allCurriculumSubjects[curriculumId].forEach(subject => {
+            const div = document.createElement('div');
+            div.className = 'subject-item' + (subject.is_core ? ' core' : '');
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.name = 'subjects[]';
+            checkbox.value = subject.subject_name;
+            checkbox.id = 'subject_' + subject.subject_name.replace(/\s+/g, '_');
+            checkbox.checked = studentSubjects.includes(subject.subject_name);
+            
+            const label = document.createElement('label');
+            label.htmlFor = checkbox.id;
+            label.style.margin = '0';
+            label.textContent = subject.subject_name;
+            
+            if (subject.is_core) {
+                const coreSpan = document.createElement('span');
+                coreSpan.style.color = '#d32f2f';
+                coreSpan.style.fontSize = '11px';
+                coreSpan.textContent = ' (Core)';
+                label.appendChild(coreSpan);
+            }
+            
+            div.appendChild(checkbox);
+            div.appendChild(label);
+            subjectsGrid.appendChild(div);
+        });
+    } else {
+        subjectsSection.style.display = 'none';
+    }
 }
 
 // Initialize on page load
-window.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded, initializing classes...');
-    updateClasses();
-});
+window.addEventListener('DOMContentLoaded', updateClassesAndSubjects);
 </script>
+
 </body>
 </html>

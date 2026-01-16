@@ -25,14 +25,14 @@ $students_by_curriculum = [];
 
 if ($category == 'Head Teacher') {
     // Head teacher sees all students
-    $curriculums = ['CBC', '8-4-4', 'IGCSE'];
+    $curriculums = ['CBE', '8-4-4', 'IGCSE'];
     foreach ($curriculums as $curr) {
         $stmt = $pdo->prepare("
             SELECT s.id, s.admission_number, s.first_name, s.last_name, 
                    cl.name as class_name, s.gender, s.status
             FROM students s
-            JOIN classes_levels cl ON s.class_level_id = cl.id
-            JOIN curriculum_types ct ON cl.curriculum_type_id = ct.id
+            LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
+            LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
             WHERE ct.name = ? AND s.status = 1
             ORDER BY cl.level_order, s.last_name, s.first_name
         ");
@@ -45,8 +45,8 @@ if ($category == 'Head Teacher') {
         SELECT s.id, s.admission_number, s.first_name, s.last_name, 
                cl.name as class_name, ct.name as curriculum_name, s.gender, s.status
         FROM students s
-        JOIN classes_levels cl ON s.class_level_id = cl.id
-        JOIN curriculum_types ct ON cl.curriculum_type_id = ct.id
+        LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
+        LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
         WHERE s.class_level_id = ? AND s.status = 1
         ORDER BY s.last_name, s.first_name
     ");
@@ -54,14 +54,14 @@ if ($category == 'Head Teacher') {
     $my_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
     // Subject teacher sees all active students
-    $curriculums = ['CBC', '8-4-4', 'IGCSE'];
+    $curriculums = ['CBE', '8-4-4', 'IGCSE'];
     foreach ($curriculums as $curr) {
         $stmt = $pdo->prepare("
             SELECT s.id, s.admission_number, s.first_name, s.last_name, 
                    cl.name as class_name, s.gender, s.status
             FROM students s
-            JOIN classes_levels cl ON s.class_level_id = cl.id
-            JOIN curriculum_types ct ON cl.curriculum_type_id = ct.id
+            LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
+            LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
             WHERE ct.name = ? AND s.status = 1
             ORDER BY cl.level_order, s.last_name, s.first_name
         ");
@@ -71,9 +71,26 @@ if ($category == 'Head Teacher') {
 }
 
 /* ---------- GET TEACHER'S SUBJECTS ---------- */
-$subjects_stmt = $pdo->prepare("SELECT subject_name FROM teacher_subjects WHERE teacher_id = ?");
-$subjects_stmt->execute([$teacher['id']]);
-$teacher_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
+$teacher_subjects = [];
+try {
+    $subjects_stmt = $pdo->prepare("
+        SELECT ts.curriculum_type_id, ct.name as curriculum_name, ts.subject_name
+        FROM teacher_subjects ts
+        JOIN curriculum_types ct ON ts.curriculum_type_id = ct.id
+        WHERE ts.teacher_id = ?
+        ORDER BY ct.id, ts.subject_name
+    ");
+    $subjects_stmt->execute([$teacher['id']]);
+    $teacher_subjects_raw = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Organize by curriculum
+    foreach ($teacher_subjects_raw as $row) {
+        $teacher_subjects[$row['curriculum_name']][] = $row['subject_name'];
+    }
+} catch (PDOException $e) {
+    // Table doesn't exist yet
+    $teacher_subjects = [];
+}
 ?>
 
 <!DOCTYPE html>
@@ -138,6 +155,15 @@ $teacher_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
             font-size: 13px;
             font-weight: 600;
         }
+        .subjects-list {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        .subjects-list strong {
+            color: var(--navy);
+        }
     </style>
 </head>
 <body>
@@ -145,6 +171,7 @@ $teacher_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
 <div class="sidebar">
     <h2>BIMS Teacher</h2>
     <a href="teacher_dashboard.php" class="active">Dashboard</a>
+    <a href="teacher/my_profile.php">My Profile</a>
     <a href="teacher/manage_grades.php">Manage Grades</a>
     <a href="logout.php">Logout</a>
 </div>
@@ -157,7 +184,12 @@ $teacher_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
             <p><span class="category-badge"><?php echo htmlspecialchars($category); ?></span></p>
             
             <?php if (!empty($teacher_subjects)): ?>
-                <p><strong>Subjects:</strong> <?php echo htmlspecialchars(implode(', ', $teacher_subjects)); ?></p>
+                <div class="subjects-list">
+                    <strong>Teaching Subjects:</strong>
+                    <?php foreach ($teacher_subjects as $curr => $subjects): ?>
+                        <p><strong><?php echo htmlspecialchars($curr); ?>:</strong> <?php echo htmlspecialchars(implode(', ', $subjects)); ?></p>
+                    <?php endforeach; ?>
+                </div>
             <?php endif; ?>
         </div>
 
@@ -168,37 +200,41 @@ $teacher_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
                     📚 My Class: <?php echo htmlspecialchars($my_students[0]['curriculum_name'] ?? ''); ?> - <?php echo htmlspecialchars($my_students[0]['class_name'] ?? ''); ?>
                 </h2>
                 
-                <table class="student-table">
-                    <thead>
-                        <tr>
-                            <th>Admission No.</th>
-                            <th>Name</th>
-                            <th>Gender</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($my_students as $student): ?>
+                <?php if (!empty($my_students)): ?>
+                    <table class="student-table">
+                        <thead>
                             <tr>
-                                <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
-                                <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
-                                <td><?php echo htmlspecialchars($student['gender']); ?></td>
-                                <td>
-                                    <a href="teacher/view_student_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
-                                        View All Grades
-                                    </a>
-                                </td>
+                                <th>Admission No.</th>
+                                <th>Name</th>
+                                <th>Gender</th>
+                                <th>Actions</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($my_students as $student): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
+                                    <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
+                                    <td><?php echo htmlspecialchars($student['gender']); ?></td>
+                                    <td>
+                                        <a href="teacher/view_student_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                            View All Grades
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php else: ?>
+                    <p class="no-students">No students in your class yet.</p>
+                <?php endif; ?>
             </div>
             
         <?php else: ?>
             <!-- SUBJECT TEACHER & HEAD TEACHER VIEW - All Curriculums -->
             <?php
             $curriculum_colors = [
-                'CBC' => ['title' => 'cbc-title', 'color' => '#2ecc71'],
+                'CBE' => ['title' => 'cbc-title', 'color' => '#2ecc71'],
                 '8-4-4' => ['title' => 'system-844-title', 'color' => '#3498db'],
                 'IGCSE' => ['title' => 'igcse-title', 'color' => '#9b59b6']
             ];
@@ -209,7 +245,9 @@ $teacher_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
                 // Group by class
                 $by_class = [];
                 foreach ($students as $student) {
-                    $by_class[$student['class_name']][] = $student;
+                    if (!empty($student['class_name'])) {
+                        $by_class[$student['class_name']][] = $student;
+                    }
                 }
             ?>
                 <div class="card curriculum-card">
@@ -217,45 +255,49 @@ $teacher_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
                         📚 <?php echo htmlspecialchars($curr_name); ?> Curriculum
                     </h2>
                     
-                    <?php foreach ($by_class as $class_name => $class_students): ?>
-                        <div class="class-section">
-                            <div class="collapsible-header" onclick="toggleSection(this)">
-                                <h3 style="margin: 0;"><?php echo htmlspecialchars($class_name); ?> (<?php echo count($class_students); ?> students)</h3>
-                                <span class="toggle-icon">▼</span>
-                            </div>
-                            
-                            <div class="collapsible-content">
-                                <table class="student-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Admission No.</th>
-                                            <th>Name</th>
-                                            <th>Gender</th>
-                                            <?php if ($category != 'Head Teacher'): ?>
-                                                <th>Actions</th>
-                                            <?php endif; ?>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($class_students as $student): ?>
+                    <?php if (!empty($by_class)): ?>
+                        <?php foreach ($by_class as $class_name => $class_students): ?>
+                            <div class="class-section">
+                                <div class="collapsible-header" onclick="toggleSection(this)">
+                                    <h3 style="margin: 0;"><?php echo htmlspecialchars($class_name); ?> (<?php echo count($class_students); ?> students)</h3>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                
+                                <div class="collapsible-content">
+                                    <table class="student-table">
+                                        <thead>
                                             <tr>
-                                                <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
-                                                <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
-                                                <td><?php echo htmlspecialchars($student['gender']); ?></td>
+                                                <th>Admission No.</th>
+                                                <th>Name</th>
+                                                <th>Gender</th>
                                                 <?php if ($category != 'Head Teacher'): ?>
-                                                    <td>
-                                                        <a href="teacher/update_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
-                                                            Update Grades
-                                                        </a>
-                                                    </td>
+                                                    <th>Actions</th>
                                                 <?php endif; ?>
                                             </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($class_students as $student): ?>
+                                                <tr>
+                                                    <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
+                                                    <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
+                                                    <td><?php echo htmlspecialchars($student['gender']); ?></td>
+                                                    <?php if ($category != 'Head Teacher'): ?>
+                                                        <td>
+                                                            <a href="teacher/update_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                                                Update Grades
+                                                            </a>
+                                                        </td>
+                                                    <?php endif; ?>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="no-students">No students enrolled in <?php echo htmlspecialchars($curr_name); ?> yet.</p>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>

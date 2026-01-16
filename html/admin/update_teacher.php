@@ -14,7 +14,9 @@ $user_id = (int) $_GET['id'];
 try {
     $stmt = $pdo->prepare("
         SELECT users.email, teachers.id as teacher_id, teachers.first_name, 
-               teachers.last_name, teachers.category, teachers.assigned_class_id
+               teachers.last_name, teachers.category, teachers.assigned_class_id,
+               teachers.phone_number, teachers.residential_area, 
+               teachers.date_of_birth, teachers.national_id
         FROM users
         LEFT JOIN teachers ON users.id = teachers.user_id
         WHERE users.id = ?
@@ -27,10 +29,37 @@ try {
         exit;
     }
     
-    // Get teacher's subjects
-    $subjects_stmt = $pdo->prepare("SELECT subject_name FROM teacher_subjects WHERE teacher_id = ?");
-    $subjects_stmt->execute([$teacher['teacher_id']]);
-    $teacher_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
+    // Get teacher's subjects grouped by curriculum
+    $subjects_stmt = $pdo->query("
+        SELECT ts.curriculum_type_id, ct.name as curriculum_name, ts.subject_name
+        FROM teacher_subjects ts
+        JOIN curriculum_types ct ON ts.curriculum_type_id = ct.id
+        WHERE ts.teacher_id = {$teacher['teacher_id']}
+        ORDER BY ct.id, ts.subject_name
+    ");
+    $teacher_subjects_raw = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Organize by curriculum
+    $teacher_subjects_by_curriculum = [];
+    foreach ($teacher_subjects_raw as $row) {
+        $teacher_subjects_by_curriculum[$row['curriculum_type_id']][] = $row['subject_name'];
+    }
+    
+    // Get all curriculums
+    $curriculums = $pdo->query("SELECT id, name FROM curriculum_types ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get subjects for each curriculum
+    $subjects_by_curriculum = [];
+    foreach ($curriculums as $curr) {
+        $subj_stmt = $pdo->prepare("
+            SELECT subject_name, is_core 
+            FROM curriculum_subjects 
+            WHERE curriculum_type_id = ? 
+            ORDER BY is_core DESC, subject_name
+        ");
+        $subj_stmt->execute([$curr['id']]);
+        $subjects_by_curriculum[$curr['id']] = $subj_stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
     
     // Get all available classes
     $classes = $pdo->query("
@@ -50,27 +79,43 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $last_name = trim($_POST['last_name']);
     $category = $_POST['category'];
     $assigned_class_id = (!empty($_POST['assigned_class_id']) && $category == 'Class Teacher') ? (int)$_POST['assigned_class_id'] : null;
-    $subjects = isset($_POST['subjects']) ? $_POST['subjects'] : [];
+    $phone_number = trim($_POST['phone_number'] ?? '');
+    $residential_area = trim($_POST['residential_area'] ?? '');
+    $date_of_birth = !empty($_POST['date_of_birth']) ? $_POST['date_of_birth'] : null;
+    $national_id = trim($_POST['national_id'] ?? '');
     
     try {
         // Update teacher info
         $stmt = $pdo->prepare("
             UPDATE teachers 
-            SET first_name = ?, last_name = ?, category = ?, assigned_class_id = ?
+            SET first_name = ?, last_name = ?, category = ?, assigned_class_id = ?,
+                phone_number = ?, residential_area = ?, date_of_birth = ?, national_id = ?
             WHERE user_id = ?
         ");
-        $stmt->execute([$first_name, $last_name, $category, $assigned_class_id, $user_id]);
+        $stmt->execute([
+            $first_name, $last_name, $category, $assigned_class_id,
+            $phone_number, $residential_area, $date_of_birth, $national_id,
+            $user_id
+        ]);
         
         // Update subjects (only for Subject Teachers and Class Teachers)
         if ($category != 'Head Teacher') {
             // Delete old subjects
             $pdo->prepare("DELETE FROM teacher_subjects WHERE teacher_id = ?")->execute([$teacher['teacher_id']]);
             
-            // Insert new subjects
-            if (!empty($subjects)) {
-                $insert_stmt = $pdo->prepare("INSERT INTO teacher_subjects (teacher_id, subject_name) VALUES (?, ?)");
-                foreach ($subjects as $subject) {
-                    $insert_stmt->execute([$teacher['teacher_id'], $subject]);
+            // Insert new subjects - organized by curriculum
+            if (!empty($_POST['curriculum_subjects'])) {
+                $insert_stmt = $pdo->prepare("
+                    INSERT INTO teacher_subjects (teacher_id, curriculum_type_id, subject_name) 
+                    VALUES (?, ?, ?)
+                ");
+                
+                foreach ($_POST['curriculum_subjects'] as $curriculum_id => $subjects) {
+                    if (!empty($subjects)) {
+                        foreach ($subjects as $subject) {
+                            $insert_stmt->execute([$teacher['teacher_id'], $curriculum_id, $subject]);
+                        }
+                    }
                 }
             }
         }
@@ -82,13 +127,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $error = "Error updating profile: " . $e->getMessage();
     }
 }
-
-// Available subjects list
-$available_subjects = [
-    'Mathematics', 'English', 'Kiswahili', 'Science', 'Social Studies',
-    'CRE', 'IRE', 'HRE', 'Agriculture', 'Business Studies',
-    'Home Science', 'Art & Design', 'Music', 'Physical Education'
-];
 ?>
 
 <!DOCTYPE html>
@@ -100,14 +138,40 @@ $available_subjects = [
     <link rel="stylesheet" href="../assets/css/admin.css">
     <link rel="stylesheet" href="../assets/css/update_profile.css">
     <style>
+        .curriculum-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--navy);
+        }
+        .curriculum-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .curriculum-header input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+        .curriculum-header label {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--navy);
+            margin: 0;
+        }
         .subject-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 10px;
             margin-top: 10px;
             padding: 15px;
-            background: #f9f9f9;
+            background: white;
             border-radius: 6px;
+            display: none;
+        }
+        .subject-grid.active {
+            display: grid;
         }
         .subject-item {
             display: flex;
@@ -116,6 +180,10 @@ $available_subjects = [
         .subject-item input[type="checkbox"] {
             width: auto;
             margin-right: 8px;
+        }
+        .subject-item.core {
+            font-weight: 600;
+            color: var(--navy);
         }
         .category-info {
             background: #e3f2fd;
@@ -126,6 +194,17 @@ $available_subjects = [
         }
         .hidden {
             display: none;
+        }
+        .profile-section {
+            background: #fff9e6;
+            padding: 15px;
+            border-left: 4px solid var(--yellow);
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .profile-section h3 {
+            color: var(--navy);
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -143,7 +222,7 @@ $available_subjects = [
     <div class="container">
         <div class="card">
             <h2>Update Teacher Profile</h2>
-            <p><strong>Email:</strong> <?php echo htmlspecialchars($teacher['email']); ?></p>
+            <p><strong>Email:</strong> <?php echo htmlspecialchars($teacher['email']); ?> <em>(Cannot be changed)</em></p>
 
             <?php if (isset($_GET['success'])): ?>
                 <div class="alert-success">✅ Profile updated successfully.</div>
@@ -154,12 +233,35 @@ $available_subjects = [
             <?php endif; ?>
 
             <form method="POST" id="teacherForm">
-                <label>First Name</label>
-                <input type="text" name="first_name" required value="<?php echo htmlspecialchars($teacher['first_name'] ?? ''); ?>">
+                <!-- BASIC INFO (Cannot change) -->
+                <div class="profile-section">
+                    <h3>📋 Basic Information (Required)</h3>
+                    
+                    <label>First Name <em>(Cannot be changed after creation)</em></label>
+                    <input type="text" name="first_name" required value="<?php echo htmlspecialchars($teacher['first_name'] ?? ''); ?>" readonly style="background: #f0f0f0;">
 
-                <label>Last Name</label>
-                <input type="text" name="last_name" required value="<?php echo htmlspecialchars($teacher['last_name'] ?? ''); ?>">
+                    <label>Last Name <em>(Cannot be changed after creation)</em></label>
+                    <input type="text" name="last_name" required value="<?php echo htmlspecialchars($teacher['last_name'] ?? ''); ?>" readonly style="background: #f0f0f0;">
+                </div>
 
+                <!-- EDITABLE PROFILE INFO -->
+                <div class="profile-section">
+                    <h3>✏️ Personal Details (Editable)</h3>
+                    
+                    <label>Phone Number</label>
+                    <input type="tel" name="phone_number" placeholder="+254..." value="<?php echo htmlspecialchars($teacher['phone_number'] ?? ''); ?>">
+
+                    <label>Residential Area</label>
+                    <input type="text" name="residential_area" placeholder="e.g., Nairobi, Westlands" value="<?php echo htmlspecialchars($teacher['residential_area'] ?? ''); ?>">
+
+                    <label>Date of Birth</label>
+                    <input type="date" name="date_of_birth" value="<?php echo htmlspecialchars($teacher['date_of_birth'] ?? ''); ?>">
+
+                    <label>National ID / Passport Number</label>
+                    <input type="text" name="national_id" placeholder="12345678" value="<?php echo htmlspecialchars($teacher['national_id'] ?? ''); ?>">
+                </div>
+
+                <!-- TEACHER CATEGORY -->
                 <label>Teacher Category</label>
                 <select name="category" id="category" required onchange="updateCategoryOptions()">
                     <option value="">Select Category</option>
@@ -186,23 +288,42 @@ $available_subjects = [
                     </select>
                 </div>
 
-                <!-- Subjects (for Subject Teachers and Class Teachers) -->
-                <div id="subjectsSection" class="hidden">
-                    <label>Subjects Teaching</label>
-                    <div class="subject-grid">
-                        <?php foreach ($available_subjects as $subject): ?>
-                            <div class="subject-item">
+                <!-- Curriculum & Subjects (for Subject Teachers and Class Teachers) -->
+                <div id="curriculumSubjectsSection" class="hidden">
+                    <h3>📚 Curriculum & Subjects Teaching</h3>
+                    <p class="help-text">Select the curriculum(s) you teach, then choose subjects for each curriculum.</p>
+                    
+                    <?php foreach ($curriculums as $curr): ?>
+                        <div class="curriculum-section">
+                            <div class="curriculum-header">
                                 <input type="checkbox" 
-                                       name="subjects[]" 
-                                       value="<?php echo htmlspecialchars($subject); ?>"
-                                       id="subject_<?php echo str_replace(' ', '_', $subject); ?>"
-                                       <?php echo in_array($subject, $teacher_subjects) ? 'checked' : ''; ?>>
-                                <label for="subject_<?php echo str_replace(' ', '_', $subject); ?>" style="margin: 0;">
-                                    <?php echo htmlspecialchars($subject); ?>
+                                       id="curriculum_<?php echo $curr['id']; ?>" 
+                                       onchange="toggleCurriculumSubjects(<?php echo $curr['id']; ?>)"
+                                       <?php echo isset($teacher_subjects_by_curriculum[$curr['id']]) ? 'checked' : ''; ?>>
+                                <label for="curriculum_<?php echo $curr['id']; ?>">
+                                    <?php echo htmlspecialchars($curr['name']); ?> Curriculum
                                 </label>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
+                            
+                            <div id="subjects_<?php echo $curr['id']; ?>" class="subject-grid <?php echo isset($teacher_subjects_by_curriculum[$curr['id']]) ? 'active' : ''; ?>">
+                                <?php foreach ($subjects_by_curriculum[$curr['id']] as $subject): ?>
+                                    <div class="subject-item <?php echo $subject['is_core'] ? 'core' : ''; ?>">
+                                        <input type="checkbox" 
+                                               name="curriculum_subjects[<?php echo $curr['id']; ?>][]" 
+                                               value="<?php echo htmlspecialchars($subject['subject_name']); ?>"
+                                               id="subject_<?php echo $curr['id']; ?>_<?php echo str_replace(' ', '_', $subject['subject_name']); ?>"
+                                               <?php echo isset($teacher_subjects_by_curriculum[$curr['id']]) && in_array($subject['subject_name'], $teacher_subjects_by_curriculum[$curr['id']]) ? 'checked' : ''; ?>>
+                                        <label for="subject_<?php echo $curr['id']; ?>_<?php echo str_replace(' ', '_', $subject['subject_name']); ?>" style="margin: 0;">
+                                            <?php echo htmlspecialchars($subject['subject_name']); ?>
+                                            <?php if ($subject['is_core']): ?>
+                                                <span style="color: #d32f2f; font-size: 11px;">(Core)</span>
+                                            <?php endif; ?>
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
 
                 <button type="submit" style="margin-top: 20px;">Update Profile</button>
@@ -215,21 +336,21 @@ $available_subjects = [
 
 <script>
 const categoryDescriptions = {
-    'Subject Teacher': 'Can teach specific subjects and update grades only for those subjects.',
-    'Class Teacher': 'Assigned to a specific class. Can view and manage all subjects for students in their class.',
-    'Head Teacher': 'Has overview access to view reports for all classes and students. Cannot update grades.'
+    'Subject Teacher': 'Can teach specific subjects across different curriculums and update grades only for those subjects.',
+    'Class Teacher': 'Assigned to a specific class. Can view and manage all subjects for students in their class, and can edit student subject selections.',
+    'Head Teacher': 'Has overview access to view reports for all classes and students. Cannot update grades directly.'
 };
 
 function updateCategoryOptions() {
     const category = document.getElementById('category').value;
     const assignedClassSection = document.getElementById('assignedClassSection');
-    const subjectsSection = document.getElementById('subjectsSection');
+    const curriculumSubjectsSection = document.getElementById('curriculumSubjectsSection');
     const categoryInfo = document.getElementById('categoryInfo');
     const categoryDescription = document.getElementById('categoryDescription');
     
     // Hide all sections first
     assignedClassSection.classList.add('hidden');
-    subjectsSection.classList.add('hidden');
+    curriculumSubjectsSection.classList.add('hidden');
     categoryInfo.classList.add('hidden');
     
     if (category) {
@@ -240,14 +361,28 @@ function updateCategoryOptions() {
         // Show relevant sections based on category
         if (category === 'Class Teacher') {
             assignedClassSection.classList.remove('hidden');
-            subjectsSection.classList.remove('hidden');
+            curriculumSubjectsSection.classList.remove('hidden');
             document.getElementById('assigned_class_id').required = true;
         } else if (category === 'Subject Teacher') {
-            subjectsSection.classList.remove('hidden');
+            curriculumSubjectsSection.classList.remove('hidden');
             document.getElementById('assigned_class_id').required = false;
         } else if (category === 'Head Teacher') {
             document.getElementById('assigned_class_id').required = false;
         }
+    }
+}
+
+function toggleCurriculumSubjects(curriculumId) {
+    const checkbox = document.getElementById('curriculum_' + curriculumId);
+    const subjectsGrid = document.getElementById('subjects_' + curriculumId);
+    
+    if (checkbox.checked) {
+        subjectsGrid.classList.add('active');
+    } else {
+        subjectsGrid.classList.remove('active');
+        // Uncheck all subjects in this curriculum
+        const subjectCheckboxes = subjectsGrid.querySelectorAll('input[type="checkbox"]');
+        subjectCheckboxes.forEach(cb => cb.checked = false);
     }
 }
 
