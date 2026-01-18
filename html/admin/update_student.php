@@ -26,7 +26,8 @@ $stmt = $pdo->prepare("
         s.residential_area,
         s.date_of_birth,
         s.parent_phone,
-        s.parent_email
+        s.parent_email,
+        s.year_of_enrollment
     FROM users u
     LEFT JOIN students s ON u.id = s.user_id
     WHERE u.id = ?
@@ -87,37 +88,39 @@ if (!empty($student['admission_number'])) {
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     try {
         // Update student basic info
-        $stmt = $pdo->prepare("
-            UPDATE students SET
-                admission_number = ?,
-                first_name = ?,
-                last_name = ?,
-                gender = ?,
-                status = ?,
-                curriculum_type_id = ?,
-                class_level_id = ?,
-                phone_number = ?,
-                residential_area = ?,
-                date_of_birth = ?,
-                parent_phone = ?,
-                parent_email = ?
-            WHERE user_id = ?
-        ");
-        $stmt->execute([
-            $_POST['admission_number'],
-            $_POST['first_name'],
-            $_POST['last_name'],
-            $_POST['gender'],
-            isset($_POST['status']) ? 1 : 0,
-            $_POST['curriculum_type_id'],
-            $_POST['class_level_id'],
-            $_POST['phone_number'] ?? null,
-            $_POST['residential_area'] ?? null,
-            $_POST['date_of_birth'] ?? null,
-            $_POST['parent_phone'] ?? null,
-            $_POST['parent_email'] ?? null,
-            $user_id
-        ]);
+      $stmt = $pdo->prepare("
+    UPDATE students SET
+        admission_number = ?,
+        first_name = ?,
+        last_name = ?,
+        gender = ?,
+        status = ?,
+        curriculum_type_id = ?,
+        class_level_id = ?,
+        phone_number = ?,
+        residential_area = ?,
+        date_of_birth = ?,
+        parent_phone = ?,
+        parent_email = ?,
+        year_of_enrollment = ?
+    WHERE user_id = ?
+");
+$stmt->execute([
+    $_POST['admission_number'],
+    $_POST['first_name'],
+    $_POST['last_name'],
+    $_POST['gender'],
+    isset($_POST['status']) ? 1 : 0,
+    $_POST['curriculum_type_id'],
+    $_POST['class_level_id'],
+    $_POST['phone_number'] ?? null,
+    $_POST['residential_area'] ?? null,
+    $_POST['date_of_birth'] ?? null,
+    $_POST['parent_phone'] ?? null,
+    $_POST['parent_email'] ?? null,
+    $_POST['year_of_enrollment'] ?? null,
+    $user_id
+]);
         
         // Update student subjects
         // Delete old subjects
@@ -271,6 +274,19 @@ foreach ($curriculums as $curr) {
                         </option>
                     <?php endforeach; ?>
                 </select>
+                <label>Year of Enrollment</label>
+<select name="year_of_enrollment" required>
+    <option value="">Select Year</option>
+    <?php 
+    $current_year = date('Y');
+    for ($year = $current_year; $year >= $current_year - 10; $year--): 
+    ?>
+        <option value="<?php echo $year; ?>" <?php echo ($student['year_of_enrollment'] ?? '') == $year ? 'selected' : ''; ?>>
+            <?php echo $year; ?>
+        </option>
+    <?php endfor; ?>
+</select>
+<p class="help-text">The year this student first enrolled in the school.</p>
 
                 <label>Class</label>
                 <select name="class_level_id" id="class_level" required>
