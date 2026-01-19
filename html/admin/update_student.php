@@ -38,6 +38,33 @@ $student = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$student) {
     die("Student not found");
 }
+if (empty($student['student_id'])) {
+    // Student row does not exist yet → create it
+    $createStmt = $pdo->prepare("
+        INSERT INTO students (
+            user_id,
+            admission_number,
+            first_name,
+            last_name,
+            curriculum_type_id,
+            class_level_id,
+            status
+        ) VALUES (?, ?, ?, ?, ?, ?, 'active')
+    ");
+
+    $createStmt->execute([
+        $user_id,
+        $_POST['admission_number'],
+        $_POST['first_name'],
+        $_POST['last_name'],
+        (int)$_POST['curriculum_type_id'],
+        (int)$_POST['class_level_id']
+    ]);
+
+    // Get the new student_id
+    $student['student_id'] = $pdo->lastInsertId();
+}
+
 
 /* ---------- FETCH CURRICULUM TYPES ---------- */
 $curriculums = $pdo->query("
@@ -228,10 +255,10 @@ foreach ($curriculums as $curr) {
                     <h3>📋 Basic Information</h3>
                     
                     <label>Admission Number <em>(Cannot be changed)</em></label>
-                    <input type="text" name="admission_number" value="<?php echo htmlspecialchars($student['admission_number'] ?? ''); ?>" readonly style="background: #f0f0f0;" required>
+                    <input type="text" name="admission_number" value="<?php echo htmlspecialchars($student['admission_number'] ?? ''); ?>" >
 
                     <label>First Name <em>(Cannot be changed)</em></label>
-                    <input type="text" name="first_name" value="<?php echo htmlspecialchars($student['first_name'] ?? ''); ?>" readonly style="background: #f0f0f0;" required>
+                    <input type="text" name="first_name" value="<?php echo htmlspecialchars($student['first_name'] ?? ''); ?>" >
 
                     <label>Last Name <em>(Cannot be changed)</em></label>
                     <input type="text" name="last_name" value="<?php echo htmlspecialchars($student['last_name'] ?? ''); ?>" readonly style="background: #f0f0f0;" required>

@@ -238,10 +238,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <h3>📋 Basic Information (Required)</h3>
                     
                     <label>First Name <em>(Cannot be changed after creation)</em></label>
-                    <input type="text" name="first_name" required value="<?php echo htmlspecialchars($teacher['first_name'] ?? ''); ?>" readonly style="background: #f0f0f0;">
+                    <input type="text" name="first_name" required value="<?php echo htmlspecialchars($teacher['first_name'] ?? ''); ?>">
 
                     <label>Last Name <em>(Cannot be changed after creation)</em></label>
-                    <input type="text" name="last_name" required value="<?php echo htmlspecialchars($teacher['last_name'] ?? ''); ?>" readonly style="background: #f0f0f0;">
+                    <input type="text" name="last_name" required value="<?php echo htmlspecialchars($teacher['last_name'] ?? ''); ?>" >
                 </div>
 
                 <!-- EDITABLE PROFILE INFO -->

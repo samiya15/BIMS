@@ -217,10 +217,17 @@ try {
                                     <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
                                     <td><?php echo htmlspecialchars($student['gender']); ?></td>
                                     <td>
-                                        <a href="teacher/view_student_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                        <a href="teacher/view_student.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
                                             View All Grades
+                                        
                                         </a>
+                                        
+                                                            <a href="teacher/update_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                                                Update Grades
+                                                            </a>
                                     </td>
+                                     
+                                                        
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>

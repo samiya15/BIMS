@@ -66,34 +66,47 @@ function getAvailableTerms($curriculum_name, $year_of_enrollment) {
     
     $available_terms = [];
     
-    if ($curriculum_name == 'CBC' || $curriculum_name == '8-4-4') {
+    if ($curriculum_name == 'CBE' || $curriculum_name == '8-4-4') {
         // Academic year: January to November
-        // Term 1: Jan-Apr, Term 2: May-Aug, Term 3: Sep-Nov
+        // Term 1: Jan-Apr, Term 2: May-Aug, Term 3: Sep-Nov, Dec is break
         
-        $current_term = 0;
-        $grading_year = $current_year;
+        // Determine which terms are COMPLETED (not current)
+        $last_completed_year = $current_year;
+        $last_completed_term = 0;
         
-        if ($current_month >= 1 && $current_month <= 4) {
-            // Currently in Term 1 - can grade up to Term 3 of previous year
-            $current_term = 0; // Can't grade current term yet
-            $grading_year = $current_year - 1;
-        } elseif ($current_month >= 5 && $current_month <= 8) {
-            // Currently in Term 2 - can grade Term 1 of this year
-            $current_term = 1;
-            $grading_year = $current_year;
-        } elseif ($current_month >= 9 && $current_month <= 11) {
-            // Currently in Term 3 - can grade Term 1 & 2 of this year
-            $current_term = 2;
-            $grading_year = $current_year;
+        if ($current_month >= 1 && $current_month <= 3) {
+            // Jan-Mar: Currently in Term 1, last completed is Term 3 of previous year
+            $last_completed_year = $current_year - 1;
+            $last_completed_term = 3;
+        } elseif ($current_month == 4) {
+            // April: Term 1 just ended, can grade it
+            $last_completed_year = $current_year;
+            $last_completed_term = 1;
+        } elseif ($current_month >= 5 && $current_month <= 7) {
+            // May-Jul: Currently in Term 2, Term 1 is completed
+            $last_completed_year = $current_year;
+            $last_completed_term = 1;
+        } elseif ($current_month == 8) {
+            // August: Term 2 just ended
+            $last_completed_year = $current_year;
+            $last_completed_term = 2;
+        } elseif ($current_month >= 9 && $current_month <= 10) {
+            // Sep-Oct: Currently in Term 3, Terms 1 & 2 completed
+            $last_completed_year = $current_year;
+            $last_completed_term = 2;
+        } elseif ($current_month == 11) {
+            // November: Term 3 just ended
+            $last_completed_year = $current_year;
+            $last_completed_term = 3;
         } elseif ($current_month == 12) {
-            // December - can grade all 3 terms of current year
-            $current_term = 3;
-            $grading_year = $current_year;
+            // December: All terms of current year completed
+            $last_completed_year = $current_year;
+            $last_completed_term = 3;
         }
         
-        // Add all completed terms from enrollment year
-        for ($year = $year_of_enrollment; $year <= $grading_year; $year++) {
-            if ($year < $grading_year) {
+        // Add all completed terms from enrollment year to last completed
+        for ($year = $year_of_enrollment; $year <= $last_completed_year; $year++) {
+            if ($year < $last_completed_year) {
                 // All past years - add all 3 terms
                 for ($term = 1; $term <= 3; $term++) {
                     $available_terms[] = [
@@ -103,8 +116,8 @@ function getAvailableTerms($curriculum_name, $year_of_enrollment) {
                     ];
                 }
             } else {
-                // Current grading year - only add completed terms
-                for ($term = 1; $term <= $current_term; $term++) {
+                // Last completed year - only add up to last completed term
+                for ($term = 1; $term <= $last_completed_term; $term++) {
                     $available_terms[] = [
                         'year' => $year,
                         'term' => "Term $term",
@@ -118,26 +131,39 @@ function getAvailableTerms($curriculum_name, $year_of_enrollment) {
         // Academic year: September to August (next year)
         // Term 1: Sep-Dec, Term 2: Jan-Apr, Term 3: May-Aug
         
-        $academic_year = $current_year;
-        $current_term = 0;
+        $last_completed_academic_year = $current_year;
+        $last_completed_term = 0;
         
-        if ($current_month >= 9 && $current_month <= 12) {
-            // Currently in Term 1 (Sep-Dec) - can grade up to Term 3 of previous academic year
-            $academic_year = $current_year - 1;
-            $current_term = 3; // All terms of previous academic year completed
-        } elseif ($current_month >= 1 && $current_month <= 4) {
-            // Currently in Term 2 (Jan-Apr) - can grade Term 1 of current academic year
-            $academic_year = $current_year - 1; // Academic year started last September
-            $current_term = 1;
-        } elseif ($current_month >= 5 && $current_month <= 8) {
-            // Currently in Term 3 (May-Aug) - can grade Term 1 & 2 of current academic year
-            $academic_year = $current_year - 1; // Academic year started last September
-            $current_term = 2;
+        if ($current_month >= 9 && $current_month <= 11) {
+            // Sep-Nov: Currently in Term 1 of new academic year
+            // Last completed is Term 3 of previous academic year
+            $last_completed_academic_year = $current_year - 1;
+            $last_completed_term = 3;
+        } elseif ($current_month == 12) {
+            // December: Term 1 of current academic year just ended
+            $last_completed_academic_year = $current_year;
+            $last_completed_term = 1;
+        } elseif ($current_month >= 1 && $current_month <= 3) {
+            // Jan-Mar: Currently in Term 2 (academic year started last Sep)
+            $last_completed_academic_year = $current_year - 1;
+            $last_completed_term = 1;
+        } elseif ($current_month == 4) {
+            // April: Term 2 just ended
+            $last_completed_academic_year = $current_year - 1;
+            $last_completed_term = 2;
+        } elseif ($current_month >= 5 && $current_month <= 7) {
+            // May-Jul: Currently in Term 3
+            $last_completed_academic_year = $current_year - 1;
+            $last_completed_term = 2;
+        } elseif ($current_month == 8) {
+            // August: Term 3 just ended, academic year complete
+            $last_completed_academic_year = $current_year - 1;
+            $last_completed_term = 3;
         }
         
-        // Add all completed terms from enrollment year
-        for ($year = $year_of_enrollment; $year <= $academic_year; $year++) {
-            if ($year < $academic_year) {
+        // Add all completed terms from enrollment
+        for ($year = $year_of_enrollment; $year <= $last_completed_academic_year; $year++) {
+            if ($year < $last_completed_academic_year) {
                 // All past academic years - add all 3 terms
                 for ($term = 1; $term <= 3; $term++) {
                     $available_terms[] = [
@@ -147,8 +173,8 @@ function getAvailableTerms($curriculum_name, $year_of_enrollment) {
                     ];
                 }
             } else {
-                // Current academic year - only add completed terms
-                for ($term = 1; $term <= $current_term; $term++) {
+                // Last completed academic year - only add completed terms
+                for ($term = 1; $term <= $last_completed_term; $term++) {
                     $available_terms[] = [
                         'year' => $year,
                         'term' => "Term $term",
