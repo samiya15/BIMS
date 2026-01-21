@@ -58,6 +58,7 @@ try {
     <a href="admin/create_user.php">Create User</a>
     <a href="list_users.php" class="active">List Users</a>
     <a href="../logout.php">Logout</a>
+    <a href="admin/manage_grade_uploads.php">Manage Grade Uploads</a>
 </div>
 
 <div class="main-content">

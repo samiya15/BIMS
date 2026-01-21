@@ -74,6 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <a href="create_user.php" class="active">Create User</a>
     <a href="../list_users.php">List Users</a>
     <a href="../logout.php">Logout</a>
+    <a href="manage_grade_uploads.php">Manage Grade Uploads</a>
 </div>
 
 <div class="main-content">
