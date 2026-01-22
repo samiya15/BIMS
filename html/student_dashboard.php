@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once __DIR__ . "/../database/db_connect.php";
+require_once __DIR__ . "/database/db_connect.php";
 
 /* ---------- ACCESS CONTROL ---------- */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Student') {
@@ -11,19 +11,9 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Student') {
 /* ---------- GET STUDENT INFO ---------- */
 $student_stmt = $pdo->prepare("
     SELECT 
-        s.id,
-        s.admission_number,
-        s.first_name,
-        s.last_name,
-        s.gender,
-        s.phone_number,
-        s.residential_area,
-        s.date_of_birth,
-        s.parent_phone,
-        s.parent_email,
-        cl.name as class_name,
-        ct.name as curriculum_name,
-        s.status
+        s.id, s.admission_number, s.first_name, s.last_name, s.gender,
+        s.phone_number, s.residential_area, s.date_of_birth, s.parent_phone, s.parent_email,
+        s.year_of_enrollment, cl.name as class_name, ct.name as curriculum_name, s.status
     FROM students s
     LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
     LEFT JOIN curriculum_types ct ON cl.curriculum_type_id = ct.id
@@ -35,50 +25,71 @@ $student = $student_stmt->fetch(PDO::FETCH_ASSOC);
 $student_name = ($student['first_name'] ?? 'Student') . ' ' . ($student['last_name'] ?? '');
 
 /* ---------- GET STUDENT'S SUBJECTS ---------- */
-$subjects_stmt = $pdo->prepare("
-    SELECT subject_name 
-    FROM student_subjects 
-    WHERE student_id = ?
-    ORDER BY subject_name
-");
+$subjects_stmt = $pdo->prepare("SELECT subject_name FROM student_subjects WHERE student_id = ? ORDER BY subject_name");
 $subjects_stmt->execute([$student['id']]);
 $student_subjects = $subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
 
-/* ---------- GET STUDENT'S GRADES ---------- */
-$grades_stmt = $pdo->prepare("
+/* ---------- GET RECENT GRADES (Latest Term) ---------- */
+$recent_grades_stmt = $pdo->prepare("
     SELECT 
-        g.subject_name,
-        g.grade,
-        g.term,
-        g.academic_year,
-        g.updated_at,
-        t.first_name as teacher_first_name,
-        t.last_name as teacher_last_name
+        g.subject_name, g.grade, g.final_score, g.term, g.academic_year, g.assessment_type,
+        g.updated_at, t.first_name as teacher_first_name, t.last_name as teacher_last_name
     FROM grades g
     LEFT JOIN teachers t ON g.teacher_id = t.id
     WHERE g.student_id = ?
-    ORDER BY g.academic_year DESC, g.term DESC, g.subject_name
+    ORDER BY g.academic_year DESC, 
+        CASE g.term 
+            WHEN 'Term 3' THEN 3 
+            WHEN 'Term 2' THEN 2 
+            WHEN 'Term 1' THEN 1 
+        END DESC,
+        CASE g.assessment_type
+            WHEN 'End-Term' THEN 3
+            WHEN 'Mid-Term' THEN 2
+            WHEN 'Opener' THEN 1
+        END DESC
+    LIMIT 10
 ");
-$grades_stmt->execute([$student['id']]);
-$all_grades = $grades_stmt->fetchAll(PDO::FETCH_ASSOC);
+$recent_grades_stmt->execute([$student['id']]);
+$recent_grades = $recent_grades_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Group grades by term and year
-$grades_by_period = [];
-foreach ($all_grades as $grade) {
-    $period = $grade['academic_year'] . ' - ' . $grade['term'];
-    $grades_by_period[$period][] = $grade;
+/* ---------- GET ALL AVAILABLE REPORT CARDS ---------- */
+$current_year = (int)date('Y');
+$years = range($student['year_of_enrollment'], $current_year);
+$terms = ['Term 1', 'Term 2', 'Term 3'];
+$assessments = ['Opener', 'Mid-Term', 'End-Term'];
+
+// Check which report cards exist
+$existing_reports = [];
+$reports_check = $pdo->prepare("
+    SELECT DISTINCT academic_year, term, assessment_type
+    FROM grades
+    WHERE student_id = ?
+    ORDER BY academic_year DESC, 
+        CASE term 
+            WHEN 'Term 3' THEN 3 
+            WHEN 'Term 2' THEN 2 
+            WHEN 'Term 1' THEN 1 
+        END DESC,
+        CASE assessment_type
+            WHEN 'End-Term' THEN 3
+            WHEN 'Mid-Term' THEN 2
+            WHEN 'Opener' THEN 1
+        END DESC
+");
+$reports_check->execute([$student['id']]);
+$reports_raw = $reports_check->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($reports_raw as $report) {
+    $key = $report['academic_year'] . '|' . $report['term'] . '|' . $report['assessment_type'];
+    $existing_reports[$key] = true;
 }
 
 /* ---------- GET LINKED PARENTS ---------- */
 $linked_parents = [];
 if (!empty($student['admission_number'])) {
     $parents_stmt = $pdo->prepare("
-        SELECT 
-            p.first_name, 
-            p.last_name, 
-            p.phone_number,
-            p.relationship,
-            u.email
+        SELECT p.first_name, p.last_name, p.phone_number, p.relationship, u.email
         FROM parents p
         JOIN users u ON p.user_id = u.id
         WHERE p.linked_students LIKE ?
@@ -96,6 +107,84 @@ if (!empty($student['admission_number'])) {
     <title>Student Dashboard</title>
     <link rel="stylesheet" href="assets/css/admin.css">
     <link rel="stylesheet" href="assets/css/student.css">
+    <style>
+        .year-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 6px solid var(--navy);
+        }
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: var(--navy);
+            color: white;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            transition: background 0.3s;
+        }
+        .collapsible-header:hover {
+            background: var(--black);
+        }
+        .collapsible-header .toggle-icon {
+            font-size: 20px;
+            transition: transform 0.3s;
+        }
+        .collapsible-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+        .collapsible-content {
+            max-height: 3000px;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0;
+        }
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .report-card-link {
+            background: linear-gradient(135deg, #f4c430 0%, #ddb300 100%);
+            color: var(--black);
+            padding: 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        .report-card-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(244, 196, 48, 0.4);
+            border-color: var(--navy);
+        }
+        .report-icon {
+            font-size: 24px;
+        }
+        .report-details {
+            flex: 1;
+            margin-left: 10px;
+        }
+        .report-title {
+            font-size: 14px;
+        }
+        .report-subtitle {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
 </head>
 <body>
 
@@ -148,27 +237,23 @@ if (!empty($student['admission_number'])) {
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
-                <p class="no-data">No subjects assigned yet. Please contact your class teacher.</p>
+                <p class="no-data">No subjects assigned yet.</p>
             <?php endif; ?>
         </div>
 
-        <!-- RECENT GRADES CARD -->
-        <div class="card">
-            <h2>📊 Recent Grades</h2>
-            <?php if (!empty($grades_by_period)): ?>
-                <?php 
-                // Show only the most recent period
-                $recent_period = array_key_first($grades_by_period);
-                $recent_grades = $grades_by_period[$recent_period];
-                ?>
-                <h3 class="period-header"><?php echo htmlspecialchars($recent_period); ?></h3>
+        <!-- RECENT GRADES -->
+        <?php if (!empty($recent_grades)): ?>
+            <div class="card">
+                <h2>📊 Recent Grades</h2>
                 <div class="grades-table-container">
                     <table class="grades-table">
                         <thead>
                             <tr>
                                 <th>Subject</th>
+                                <th>Assessment</th>
+                                <th>Year/Term</th>
+                                <th>Score</th>
                                 <th>Grade</th>
-                                <th>Teacher</th>
                                 <th>Updated</th>
                             </tr>
                         </thead>
@@ -176,33 +261,75 @@ if (!empty($student['admission_number'])) {
                             <?php foreach ($recent_grades as $grade): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($grade['subject_name']); ?></td>
-                                    <td>
-                                        <span class="grade-badge">
-                                            <?php echo htmlspecialchars($grade['grade'] ?? 'N/A'); ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <?php 
-                                        if ($grade['teacher_first_name']) {
-                                            echo htmlspecialchars($grade['teacher_first_name'] . ' ' . $grade['teacher_last_name']);
-                                        } else {
-                                            echo 'Not assigned';
-                                        }
-                                        ?>
-                                    </td>
+                                    <td><?php echo htmlspecialchars($grade['assessment_type']); ?></td>
+                                    <td><?php echo $grade['academic_year'] . ' - ' . htmlspecialchars($grade['term']); ?></td>
+                                    <td><?php echo $grade['final_score']; ?>/100</td>
+                                    <td><span class="grade-badge"><?php echo htmlspecialchars($grade['grade'] ?? 'N/A'); ?></span></td>
                                     <td><?php echo date('M d, Y', strtotime($grade['updated_at'])); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
-                <a href="student/my_grades.php" class="view-all-link">View All Grades →</a>
-            <?php else: ?>
-                <p class="no-data">No grades available yet.</p>
-            <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
+        <!-- MY REPORT CARDS -->
+        <div class="card">
+            <h2>📄 My Report Cards</h2>
+            <p style="color: #666; margin-bottom: 20px;">Click on any report card to view and print</p>
+
+            <?php foreach (array_reverse($years) as $year_index => $year): ?>
+                <div class="year-section">
+                    <div class="collapsible-header <?php echo $year_index > 0 ? 'collapsed' : ''; ?>" onclick="toggleSection(this)">
+                        <span><strong><?php echo $year; ?></strong> Academic Year</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    
+                    <div class="collapsible-content <?php echo $year_index > 0 ? 'collapsed' : ''; ?>">
+                        <div class="reports-grid">
+                            <?php foreach ($terms as $term): ?>
+                                <?php foreach ($assessments as $assessment): ?>
+                                    <?php 
+                                    $key = $year . '|' . $term . '|' . $assessment;
+                                    if (isset($existing_reports[$key])):
+                                    ?>
+                                        <a href="teacher/view_report_card.php?student_id=<?php echo $student['id']; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
+                                           class="report-card-link">
+                                            <span class="report-icon">📄</span>
+                                            <div class="report-details">
+                                                <div class="report-title"><?php echo $term; ?> - <?php echo $assessment; ?></div>
+                                                <div class="report-subtitle"><?php echo $year; ?></div>
+                                            </div>
+                                            <span>→</span>
+                                        </a>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            <?php endforeach; ?>
+                        </div>
+                        
+                        <?php 
+                        // Check if no reports for this year
+                        $has_reports = false;
+                        foreach ($terms as $term) {
+                            foreach ($assessments as $assessment) {
+                                $key = $year . '|' . $term . '|' . $assessment;
+                                if (isset($existing_reports[$key])) {
+                                    $has_reports = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                        if (!$has_reports):
+                        ?>
+                            <p class="no-data">No report cards available for <?php echo $year; ?> yet.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
         </div>
 
-        <!-- PARENT/GUARDIAN INFO -->
+        <!-- PARENT INFO -->
         <?php if (!empty($linked_parents)): ?>
             <div class="card">
                 <h2>👨‍👩‍👧 Parent/Guardian Information</h2>
@@ -215,13 +342,9 @@ if (!empty($student['admission_number'])) {
                                 <?php if ($parent['relationship']): ?>
                                     <p class="parent-relationship"><?php echo htmlspecialchars($parent['relationship']); ?></p>
                                 <?php endif; ?>
-                                <p class="parent-contact">
-                                    📧 <?php echo htmlspecialchars($parent['email']); ?>
-                                </p>
+                                <p class="parent-contact">📧 <?php echo htmlspecialchars($parent['email']); ?></p>
                                 <?php if ($parent['phone_number']): ?>
-                                    <p class="parent-contact">
-                                        📱 <?php echo htmlspecialchars($parent['phone_number']); ?>
-                                    </p>
+                                    <p class="parent-contact">📱 <?php echo htmlspecialchars($parent['phone_number']); ?></p>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -240,10 +363,10 @@ if (!empty($student['admission_number'])) {
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">📊</div>
+                <div class="stat-icon">📄</div>
                 <div class="stat-info">
-                    <div class="stat-number"><?php echo count($all_grades); ?></div>
-                    <div class="stat-label">Total Grades</div>
+                    <div class="stat-number"><?php echo count($existing_reports); ?></div>
+                    <div class="stat-label">Report Cards</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -256,6 +379,14 @@ if (!empty($student['admission_number'])) {
         </div>
     </div>
 </div>
+
+<script>
+function toggleSection(header) {
+    const content = header.nextElementSibling;
+    header.classList.toggle('collapsed');
+    content.classList.toggle('collapsed');
+}
+</script>
 
 </body>
 </html>

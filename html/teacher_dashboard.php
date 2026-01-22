@@ -173,6 +173,7 @@ try {
     <a href="teacher_dashboard.php" class="active">Dashboard</a>
     <a href="teacher/my_profile.php">My Profile</a>
     <a href="teacher/manage_grades.php">Manage Grades</a>
+    <a href="teacher/view_report_card.php">View Report Cards</a>
     <a href="logout.php">Logout</a>
 </div>
 
