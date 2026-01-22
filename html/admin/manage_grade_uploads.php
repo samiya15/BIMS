@@ -80,8 +80,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['
 $current_year = (int)date('Y');
 $years = range(2021, $current_year);
 $terms = ['Term 1', 'Term 2', 'Term 3'];
-$assessments = ['Opener', 'Mid-Term', 'End-Term']; // Both CBC and 8-4-4 use same assessments
-$curriculums = ['CBC', '8-4-4'];
+$assessments = ['Opener', 'Mid-Term', 'End-Term']; // Both CBE
+// and 8-4-4 use same assessments
+$curriculums = ['CBE', '8-4-4'];
 
 $permissions_query = $pdo->query("SELECT * FROM grade_upload_permissions");
 $permissions_raw = $permissions_query->fetchAll(PDO::FETCH_ASSOC);
