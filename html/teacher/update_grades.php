@@ -48,7 +48,7 @@ $student_subjects = $student_subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
 
 /* ---------- GET ALL EXISTING GRADES ---------- */
 $grades_stmt = $pdo->prepare("
-    SELECT subject_name, grade, score, rats_score, final_score, assessment_type, term, academic_year, is_locked
+    SELECT subject_name, grade, score, rats_score, final_score, assessment_type, term, academic_year, is_locked, teacher_comment
     FROM grades WHERE student_id = ?
 ");
 $grades_stmt->execute([$student_id]);
@@ -57,13 +57,14 @@ $all_grades = $grades_stmt->fetchAll(PDO::FETCH_ASSOC);
 // Organize: year -> term -> assessment -> subject -> data
 $grades_organized = [];
 foreach ($all_grades as $g) {
-    $grades_organized[$g['academic_year']][$g['term']][$g['assessment_type']][$g['subject_name']] = [
-        'score' => $g['score'],
-        'rats_score' => $g['rats_score'],
-        'final_score' => $g['final_score'],
-        'grade' => $g['grade'],
-        'is_locked' => $g['is_locked']
-    ];
+  $grades_organized[$g['academic_year']][$g['term']][$g['assessment_type']][$g['subject_name']] = [
+    'score' => $grade_data['score'],
+    'rats_score' => $grade_data['rats_score'],
+    'final_score' => $grade_data['final_score'],
+    'grade' => $grade_data['grade'],
+    'is_locked' => $grade_data['is_locked'],
+    'comment' => $grade_data['teacher_comment'] ?? ''
+];
 }
 
 /* ---------- CHECK PERMISSIONS ---------- */
@@ -88,6 +89,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $selected_assessment = $_POST['assessment_type'];
     $grades_data = $_POST['grades'] ?? [];
     $rats_data = $_POST['rats'] ?? [];
+    $comments_data = $_POST['comments'] ?? [];
     $lock_submission = isset($_POST['lock_submission']) ? 1 : 0;
     
     $is_locked = areGradesLocked($student_id, $selected_year, $selected_term, $selected_assessment, $pdo);
@@ -112,11 +114,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             try {
                 $pdo->beginTransaction();
                 
-                foreach ($grades_data as $subject => $score) {
-                    if ($score === '' || $score === null) continue;
-                    
-                    $score = (int)$score;
-                    $rats_score = isset($rats_data[$subject]) ? (int)$rats_data[$subject] : null;
+              foreach ($grades_data as $subject => $score) {
+    if ($score === '' || $score === null) continue;
+    
+    $score = (int)$score;
+    $rats_score = isset($rats_data[$subject]) ? (int)$rats_data[$subject] : null;
+    $teacher_comment = isset($comments_data[$subject]) ? trim($comments_data[$subject]) : null;
                     
                     if ($selected_assessment == 'Opener') {
                         $final_score = $score;
@@ -145,12 +148,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $existing = $check_stmt->fetch();
                     
                     if ($existing) {
-                        $update_stmt = $pdo->prepare("UPDATE grades SET grade = ?, score = ?, rats_score = ?, final_score = ?, grade_points = ?, teacher_id = ?, is_locked = ?, updated_at = NOW() WHERE id = ?");
-                        $update_stmt->execute([$grade, $score, $rats_score, $final_score, $grade_points, $teacher['id'], $lock_submission, $existing['id']]);
-                    } else {
-                        $insert_stmt = $pdo->prepare("INSERT INTO grades (student_id, subject_name, grade, score, rats_score, final_score, grade_points, term, assessment_type, academic_year, teacher_id, is_locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                        $insert_stmt->execute([$student_id, $subject, $grade, $score, $rats_score, $final_score, $grade_points, $selected_term, $selected_assessment, $selected_year, $teacher['id'], $lock_submission]);
-                    }
+    $update_stmt = $pdo->prepare("UPDATE grades SET grade = ?, score = ?, rats_score = ?, final_score = ?, grade_points = ?, teacher_id = ?, is_locked = ?, teacher_comment = ?, updated_at = NOW() WHERE id = ?");
+    $update_stmt->execute([$grade, $score, $rats_score, $final_score, $grade_points, $teacher['id'], $lock_submission, $teacher_comment, $existing['id']]);
+} else {
+    $insert_stmt = $pdo->prepare("INSERT INTO grades (student_id, subject_name, grade, score, rats_score, final_score, grade_points, term, assessment_type, academic_year, teacher_id, is_locked, teacher_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $insert_stmt->execute([$student_id, $subject, $grade, $score, $rats_score, $final_score, $grade_points, $selected_term, $selected_assessment, $selected_year, $teacher['id'], $lock_submission, $teacher_comment]);
+}
                 }
                 
                 if ($lock_submission) {
@@ -437,31 +440,53 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                                                         $existing_score = $grade_data['score'] ?? '';
                                                         $existing_rats = $grade_data['rats_score'] ?? '';
                                                     ?>
-                                                        <div class="grade-input-item <?php echo $has_rats ? 'has-rats' : ''; ?>">
-                                                            <label><?php echo htmlspecialchars($subject); ?></label>
-                                                            <input type="number" 
-                                                                   name="grades[<?php echo htmlspecialchars($subject); ?>]" 
-                                                                   placeholder="<?php echo $has_rats ? 'Score /80' : 'Score /100'; ?>"
-                                                                   min="0" 
-                                                                   max="<?php echo $has_rats ? '80' : '100'; ?>"
-                                                                   value="<?php echo $existing_score; ?>"
-                                                                   <?php echo $is_locked ? 'disabled' : ''; ?>>
-                                                            <small><?php echo $has_rats ? 'Exam score (out of 80)' : 'Total score (out of 100)'; ?></small>
-                                                            
-                                                            <?php if ($has_rats): ?>
-                                                                <div class="rats-input">
-                                                                    <label>RATs Score</label>
-                                                                    <input type="number" 
-                                                                           name="rats[<?php echo htmlspecialchars($subject); ?>]" 
-                                                                           placeholder="RATs /20"
-                                                                           min="0" 
-                                                                           max="20"
-                                                                           value="<?php echo $existing_rats; ?>"
-                                                                           <?php echo $is_locked ? 'disabled' : ''; ?>>
-                                                                    <small>RATs score (out of 20)</small>
-                                                                </div>
-                                                            <?php endif; ?>
-                                                        </div>
+                                                        <?php
+$subjects_to_grade = $student_subjects;
+if ($teacher['category'] == 'Subject Teacher' && !empty($teacher_subjects)) {
+    $subjects_to_grade = array_intersect($student_subjects, $teacher_subjects);
+}
+
+foreach ($subjects_to_grade as $subject):
+    $grade_data = $grades_organized[$year][$term][$assessment][$subject] ?? [];
+    $existing_score = $grade_data['score'] ?? '';
+    $existing_rats = $grade_data['rats_score'] ?? '';
+    $existing_comment = $grade_data['comment'] ?? '';
+?>
+    <div class="grade-input-item <?php echo $has_rats ? 'has-rats' : ''; ?>">
+        <label><?php echo htmlspecialchars($subject); ?></label>
+        <input type="number" 
+               name="grades[<?php echo htmlspecialchars($subject); ?>]" 
+               placeholder="<?php echo $has_rats ? 'Score /80' : 'Score /100'; ?>"
+               min="0" 
+               max="<?php echo $has_rats ? '80' : '100'; ?>"
+               value="<?php echo $existing_score; ?>"
+               <?php echo $is_locked ? 'disabled' : ''; ?>>
+        <small><?php echo $has_rats ? 'Exam score (out of 80)' : 'Total score (out of 100)'; ?></small>
+        
+        <?php if ($has_rats): ?>
+            <div class="rats-input">
+                <label>RATs Score</label>
+                <input type="number" 
+                       name="rats[<?php echo htmlspecialchars($subject); ?>]" 
+                       placeholder="RATs /20"
+                       min="0" 
+                       max="20"
+                       value="<?php echo $existing_rats; ?>"
+                       <?php echo $is_locked ? 'disabled' : ''; ?>>
+                <small>RATs score (out of 20)</small>
+            </div>
+        <?php endif; ?>
+        
+        <div style="margin-top: 10px;">
+            <label style="font-size: 13px; color: #666;">Teacher's Comment</label>
+            <textarea name="comments[<?php echo htmlspecialchars($subject); ?>]" 
+                      rows="2"
+                      placeholder="Optional comment about student's performance"
+                      style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 13px; resize: vertical;"
+                      <?php echo $is_locked ? 'disabled' : ''; ?>><?php echo htmlspecialchars($existing_comment); ?></textarea>
+        </div>
+    </div>
+<?php endforeach; ?>
                                                     <?php endforeach; ?>
                                                 </div>
                                                 
