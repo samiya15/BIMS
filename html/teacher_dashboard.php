@@ -24,12 +24,12 @@ $category = $teacher['category'] ?? 'Subject Teacher';
 $students_by_curriculum = [];
 
 if ($category == 'Head Teacher') {
-    // Head teacher sees all students
+    // Head teacher sees all students - GROUPED BY CURRICULUM
     $curriculums = ['CBE', '8-4-4', 'IGCSE'];
     foreach ($curriculums as $curr) {
         $stmt = $pdo->prepare("
             SELECT s.id, s.admission_number, s.first_name, s.last_name, 
-                   cl.name as class_name, s.gender, s.status
+                   cl.name as class_name, ct.name as curriculum_name, s.gender, s.status
             FROM students s
             LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
             LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
@@ -53,12 +53,12 @@ if ($category == 'Head Teacher') {
     $stmt->execute([$teacher['assigned_class_id']]);
     $my_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
-    // Subject teacher sees all active students
+    // Subject teacher sees all active students - GROUPED BY CURRICULUM
     $curriculums = ['CBE', '8-4-4', 'IGCSE'];
     foreach ($curriculums as $curr) {
         $stmt = $pdo->prepare("
             SELECT s.id, s.admission_number, s.first_name, s.last_name, 
-                   cl.name as class_name, s.gender, s.status
+                   cl.name as class_name, ct.name as curriculum_name, s.gender, s.status
             FROM students s
             LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
             LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
@@ -90,6 +90,17 @@ try {
 } catch (PDOException $e) {
     // Table doesn't exist yet
     $teacher_subjects = [];
+}
+
+/* ---------- HELPER FUNCTION: GET GRADE UPDATE PAGE BASED ON CURRICULUM ---------- */
+function getGradeUpdatePage($curriculum) {
+    if ($curriculum === '8-4-4') {
+        return 'teacher/update_grades_844.php';
+    } elseif ($curriculum === 'IGCSE') {
+        return 'teacher/update_grades_igcse.php'; // You'll create this later
+    } else {
+        return 'teacher/update_grades.php'; // CBE default
+    }
 }
 ?>
 
@@ -164,6 +175,26 @@ try {
         .subjects-list strong {
             color: var(--navy);
         }
+        .curriculum-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .curriculum-cbe {
+            background: #4caf50;
+            color: white;
+        }
+        .curriculum-844 {
+            background: #2196f3;
+            color: white;
+        }
+        .curriculum-igcse {
+            background: #9c27b0;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -207,28 +238,32 @@ try {
                             <tr>
                                 <th>Admission No.</th>
                                 <th>Name</th>
+                                <th>Curriculum</th>
                                 <th>Gender</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($my_students as $student): ?>
+                                <?php $grade_page = getGradeUpdatePage($student['curriculum_name']); ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
                                     <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
+                                    <td>
+                                        <span class="curriculum-badge curriculum-<?php echo strtolower(str_replace(['-', '.'], '', $student['curriculum_name'])); ?>">
+                                            <?php echo htmlspecialchars($student['curriculum_name']); ?>
+                                        </span>
+                                    </td>
                                     <td><?php echo htmlspecialchars($student['gender']); ?></td>
                                     <td>
                                         <a href="teacher/view_student.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
                                             View All Grades
-                                        
                                         </a>
                                         
-                                                            <a href="teacher/update_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
-                                                                Update Grades
-                                                            </a>
+                                        <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                            Update Grades
+                                        </a>
                                     </td>
-                                     
-                                                        
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -285,13 +320,14 @@ try {
                                         </thead>
                                         <tbody>
                                             <?php foreach ($class_students as $student): ?>
+                                                <?php $grade_page = getGradeUpdatePage($student['curriculum_name']); ?>
                                                 <tr>
                                                     <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
                                                     <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
                                                     <td><?php echo htmlspecialchars($student['gender']); ?></td>
                                                     <?php if ($category != 'Head Teacher'): ?>
                                                         <td>
-                                                            <a href="teacher/update_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                                            <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
                                                                 Update Grades
                                                             </a>
                                                         </td>

@@ -38,33 +38,27 @@ $student = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$student) {
     die("Student not found");
 }
+
+// FIX: Check if student row exists, if not we need to wait for POST to create it
 if (empty($student['student_id'])) {
-    // Student row does not exist yet → create it
-    $createStmt = $pdo->prepare("
-        INSERT INTO students (
-            user_id,
-            admission_number,
-            first_name,
-            last_name,
-            curriculum_type_id,
-            class_level_id,
-            status
-        ) VALUES (?, ?, ?, ?, ?, ?, 'active')
-    ");
-
-    $createStmt->execute([
-        $user_id,
-        $_POST['admission_number'],
-        $_POST['first_name'],
-        $_POST['last_name'],
-        (int)$_POST['curriculum_type_id'],
-        (int)$_POST['class_level_id']
-    ]);
-
-    // Get the new student_id
-    $student['student_id'] = $pdo->lastInsertId();
+    // Student profile doesn't exist yet - show form to create it
+    $student['admission_number'] = '';
+    $student['first_name'] = '';
+    $student['last_name'] = '';
+    $student['gender'] = '';
+    $student['status'] = 1;
+    $student['curriculum_type_id'] = '';
+    $student['class_level_id'] = '';
+    $student['phone_number'] = '';
+    $student['residential_area'] = '';
+    $student['date_of_birth'] = '';
+    $student['parent_phone'] = '';
+    $student['parent_email'] = '';
+    $student['year_of_enrollment'] = date('Y');
+    $is_new_student = true;
+} else {
+    $is_new_student = false;
 }
-
 
 /* ---------- FETCH CURRICULUM TYPES ---------- */
 $curriculums = $pdo->query("
@@ -79,11 +73,14 @@ $classLevels = $pdo->query("
 ")->fetchAll(PDO::FETCH_ASSOC);
 
 /* ---------- FETCH STUDENT'S SUBJECTS ---------- */
-$student_subjects_stmt = $pdo->prepare("
-    SELECT subject_name FROM student_subjects WHERE student_id = ?
-");
-$student_subjects_stmt->execute([$student['student_id']]);
-$student_subjects = $student_subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
+$student_subjects = [];
+if (!$is_new_student) {
+    $student_subjects_stmt = $pdo->prepare("
+        SELECT subject_name FROM student_subjects WHERE student_id = ?
+    ");
+    $student_subjects_stmt->execute([$student['student_id']]);
+    $student_subjects = $student_subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
+}
 
 /* ---------- FETCH AVAILABLE SUBJECTS FOR STUDENT'S CURRICULUM ---------- */
 $available_subjects = [];
@@ -114,40 +111,82 @@ if (!empty($student['admission_number'])) {
 /* ---------- UPDATE ---------- */
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     try {
-        // Update student basic info
-      $stmt = $pdo->prepare("
-    UPDATE students SET
-        admission_number = ?,
-        first_name = ?,
-        last_name = ?,
-        gender = ?,
-        status = ?,
-        curriculum_type_id = ?,
-        class_level_id = ?,
-        phone_number = ?,
-        residential_area = ?,
-        date_of_birth = ?,
-        parent_phone = ?,
-        parent_email = ?,
-        year_of_enrollment = ?
-    WHERE user_id = ?
-");
-$stmt->execute([
-    $_POST['admission_number'],
-    $_POST['first_name'],
-    $_POST['last_name'],
-    $_POST['gender'],
-    isset($_POST['status']) ? 1 : 0,
-    $_POST['curriculum_type_id'],
-    $_POST['class_level_id'],
-    $_POST['phone_number'] ?? null,
-    $_POST['residential_area'] ?? null,
-    $_POST['date_of_birth'] ?? null,
-    $_POST['parent_phone'] ?? null,
-    $_POST['parent_email'] ?? null,
-    $_POST['year_of_enrollment'] ?? null,
-    $user_id
-]);
+        // FIX: If this is a new student, create the student record first
+        if ($is_new_student) {
+            $createStmt = $pdo->prepare("
+                INSERT INTO students (
+                    user_id,
+                    admission_number,
+                    first_name,
+                    last_name,
+                    gender,
+                    status,
+                    curriculum_type_id,
+                    class_level_id,
+                    phone_number,
+                    residential_area,
+                    date_of_birth,
+                    parent_phone,
+                    parent_email,
+                    year_of_enrollment
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+
+            $createStmt->execute([
+                $user_id,
+                $_POST['admission_number'],
+                $_POST['first_name'],
+                $_POST['last_name'],
+                $_POST['gender'],
+                isset($_POST['status']) ? 1 : 0,
+                $_POST['curriculum_type_id'],
+                $_POST['class_level_id'],
+                $_POST['phone_number'] ?? null,
+                $_POST['residential_area'] ?? null,
+                $_POST['date_of_birth'] ?? null,
+                $_POST['parent_phone'] ?? null,
+                $_POST['parent_email'] ?? null,
+                $_POST['year_of_enrollment'] ?? date('Y')
+            ]);
+
+            // Get the new student_id
+            $student['student_id'] = $pdo->lastInsertId();
+        } else {
+            // Update existing student basic info
+            $stmt = $pdo->prepare("
+                UPDATE students SET
+                    admission_number = ?,
+                    first_name = ?,
+                    last_name = ?,
+                    gender = ?,
+                    status = ?,
+                    curriculum_type_id = ?,
+                    class_level_id = ?,
+                    phone_number = ?,
+                    residential_area = ?,
+                    date_of_birth = ?,
+                    parent_phone = ?,
+                    parent_email = ?,
+                    year_of_enrollment = ?
+                WHERE user_id = ?
+            ");
+            $stmt->execute([
+                $_POST['admission_number'],
+                $_POST['first_name'],
+                $_POST['last_name'],
+                $_POST['gender'],
+                isset($_POST['status']) ? 1 : 0,
+                $_POST['curriculum_type_id'],
+                $_POST['class_level_id'],
+                $_POST['phone_number'] ?? null,
+                $_POST['residential_area'] ?? null,
+                $_POST['date_of_birth'] ?? null,
+                $_POST['parent_phone'] ?? null,
+                $_POST['parent_email'] ?? null,
+                $_POST['year_of_enrollment'] ?? null,
+                $user_id
+            ]);
+        }
         
         // Update student subjects
         // Delete old subjects
@@ -223,6 +262,14 @@ foreach ($curriculums as $curr) {
             color: var(--navy);
             margin-bottom: 15px;
         }
+        .new-student-notice {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 15px;
+            border-left: 4px solid #2196f3;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -238,11 +285,17 @@ foreach ($curriculums as $curr) {
 <div class="main-content">
     <div class="container">
         <div class="card">
-            <h2>Update Student Profile</h2>
+            <h2><?php echo $is_new_student ? 'Create' : 'Update'; ?> Student Profile</h2>
             <p><strong>Email:</strong> <?php echo htmlspecialchars($student['email']); ?> <em>(Cannot be changed)</em></p>
 
+            <?php if ($is_new_student): ?>
+                <div class="new-student-notice">
+                    ℹ️ This student account exists but has no profile yet. Please fill in the details below to create the profile.
+                </div>
+            <?php endif; ?>
+
             <?php if (isset($_GET['success'])): ?>
-                <div class="alert-success">✅ Student updated successfully.</div>
+                <div class="alert-success">✅ Student <?php echo $is_new_student ? 'created' : 'updated'; ?> successfully.</div>
             <?php endif; ?>
 
             <?php if (isset($error)): ?>
@@ -250,25 +303,34 @@ foreach ($curriculums as $curr) {
             <?php endif; ?>
 
             <form method="POST">
-                <!-- BASIC INFO (Cannot change after creation) -->
+                <!-- BASIC INFO -->
                 <div class="profile-section">
-                    <h3>📋 Basic Information</h3>
+                    <h3>📋 Basic Information <?php echo !$is_new_student ? '(Cannot be changed after creation)' : ''; ?></h3>
                     
-                    <label>Admission Number <em>(Cannot be changed)</em></label>
-                    <input type="text" name="admission_number" value="<?php echo htmlspecialchars($student['admission_number'] ?? ''); ?>" >
+                    <label>Admission Number <?php echo !$is_new_student ? '<em>(Cannot be changed)</em>' : '<em style="color:red">*Required</em>'; ?></label>
+                    <input type="text" name="admission_number" 
+                           value="<?php echo htmlspecialchars($student['admission_number']); ?>" 
+                           <?php echo !$is_new_student ? 'readonly style="background: #f0f0f0;"' : ''; ?>
+                           required>
 
-                    <label>First Name <em>(Cannot be changed)</em></label>
-                    <input type="text" name="first_name" value="<?php echo htmlspecialchars($student['first_name'] ?? ''); ?>" >
+                    <label>First Name <?php echo !$is_new_student ? '<em>(Cannot be changed)</em>' : '<em style="color:red">*Required</em>'; ?></label>
+                    <input type="text" name="first_name" 
+                           value="<?php echo htmlspecialchars($student['first_name']); ?>" 
+                           <?php echo !$is_new_student ? 'readonly style="background: #f0f0f0;"' : ''; ?>
+                           required>
 
-                    <label>Last Name <em>(Cannot be changed)</em></label>
-                    <input type="text" name="last_name" value="<?php echo htmlspecialchars($student['last_name'] ?? ''); ?>" readonly style="background: #f0f0f0;" required>
+                    <label>Last Name <?php echo !$is_new_student ? '<em>(Cannot be changed)</em>' : '<em style="color:red">*Required</em>'; ?></label>
+                    <input type="text" name="last_name" 
+                           value="<?php echo htmlspecialchars($student['last_name']); ?>" 
+                           <?php echo !$is_new_student ? 'readonly style="background: #f0f0f0;"' : ''; ?>
+                           required>
                 </div>
 
                 <!-- EDITABLE PROFILE INFO -->
                 <div class="profile-section">
                     <h3>✏️ Personal Details (Editable)</h3>
                     
-                    <label>Gender</label>
+                    <label>Gender <em style="color:red">*Required</em></label>
                     <select name="gender" required>
                         <option value="">Select Gender</option>
                         <option value="Male" <?php echo ($student['gender'] ?? '') == 'Male' ? 'selected' : ''; ?>>Male</option>
@@ -292,7 +354,7 @@ foreach ($curriculums as $curr) {
                 </div>
 
                 <!-- ACADEMIC INFO -->
-                <label>Curriculum</label>
+                <label>Curriculum <em style="color:red">*Required</em></label>
                 <select name="curriculum_type_id" id="curriculum" onchange="updateClassesAndSubjects()" required>
                     <option value="">Select Curriculum</option>
                     <?php foreach ($curriculums as $c): ?>
@@ -301,21 +363,22 @@ foreach ($curriculums as $curr) {
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <label>Year of Enrollment</label>
-<select name="year_of_enrollment" required>
-    <option value="">Select Year</option>
-    <?php 
-    $current_year = date('Y');
-    for ($year = $current_year; $year >= $current_year - 10; $year--): 
-    ?>
-        <option value="<?php echo $year; ?>" <?php echo ($student['year_of_enrollment'] ?? '') == $year ? 'selected' : ''; ?>>
-            <?php echo $year; ?>
-        </option>
-    <?php endfor; ?>
-</select>
-<p class="help-text">The year this student first enrolled in the school.</p>
 
-                <label>Class</label>
+                <label>Year of Enrollment <em style="color:red">*Required</em></label>
+                <select name="year_of_enrollment" required>
+                    <option value="">Select Year</option>
+                    <?php 
+                    $current_year = date('Y');
+                    for ($year = $current_year; $year >= $current_year - 10; $year--): 
+                    ?>
+                        <option value="<?php echo $year; ?>" <?php echo ($student['year_of_enrollment'] ?? '') == $year ? 'selected' : ''; ?>>
+                            <?php echo $year; ?>
+                        </option>
+                    <?php endfor; ?>
+                </select>
+                <p class="help-text">The year this student first enrolled in the school.</p>
+
+                <label>Class <em style="color:red">*Required</em></label>
                 <select name="class_level_id" id="class_level" required>
                     <option value="">Select Class</option>
                 </select>
@@ -339,7 +402,7 @@ foreach ($curriculums as $curr) {
                 <button type="submit" style="margin-top: 20px;">Save Changes</button>
             </form>
 
-            <?php if (!empty($linked_parents)): ?>
+            <?php if (!$is_new_student && !empty($linked_parents)): ?>
                 <div class="linked-info">
                     <h3>👨‍👩‍👧 Linked Parents/Guardians</h3>
                     <ul>
@@ -351,7 +414,7 @@ foreach ($curriculums as $curr) {
                         <?php endforeach; ?>
                     </ul>
                 </div>
-            <?php else: ?>
+            <?php elseif (!$is_new_student): ?>
                 <div class="linked-info no-parents">
                     <p>⚠️ No parents linked to this student yet.</p>
                 </div>
