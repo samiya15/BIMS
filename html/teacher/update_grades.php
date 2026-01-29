@@ -139,7 +139,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     else $grade = 'BE2';
                     
                     $grade_points = null;
-                    $points_stmt = $pdo->prepare("SELECT points FROM cbc_grading_scale WHERE grade_code = ?");
+                    $points_stmt = $pdo->prepare("SELECT points FROM cbe_grading_scale WHERE grade_code = ?");
                     $points_stmt->execute([$grade]);
                     $points_row = $points_stmt->fetch();
                     $grade_points = $points_row ? $points_row['points'] : null;
