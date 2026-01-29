@@ -82,7 +82,7 @@ $years = range(2021, $current_year);
 $terms = ['Term 1', 'Term 2', 'Term 3'];
 $assessments = ['Opener', 'Mid-Term', 'End-Term']; // Both CBE
 // and 8-4-4 use same assessments
-$curriculums = ['CBE', '8-4-4'];
+$curriculums = ['CBE', '8-4-4','IGCSE'];
 
 $permissions_query = $pdo->query("SELECT * FROM grade_upload_permissions");
 $permissions_raw = $permissions_query->fetchAll(PDO::FETCH_ASSOC);
