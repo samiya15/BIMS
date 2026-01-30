@@ -57,7 +57,6 @@ $all_grades = $grades_stmt->fetchAll(PDO::FETCH_ASSOC);
 // Organize: year -> term -> assessment -> subject -> data
 $grades_organized = [];
 foreach ($all_grades as $g) {
-    // FIX: Use $g instead of undefined $grade_data
     $grades_organized[$g['academic_year']][$g['term']][$g['assessment_type']][$g['subject_name']] = [
         'score' => $g['score'],
         'rats_score' => $g['rats_score'],
@@ -92,6 +91,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $rats_data = $_POST['rats'] ?? [];
     $comments_data = $_POST['comments'] ?? [];
     $lock_submission = isset($_POST['lock_submission']) ? 1 : 0;
+    $class_teacher_comment = isset($_POST['class_teacher_comment']) ? trim($_POST['class_teacher_comment']) : null;
     
     $is_locked = areGradesLocked($student_id, $selected_year, $selected_term, $selected_assessment, $pdo);
     
@@ -162,12 +162,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $check_sub->execute([$student_id, $selected_year, $selected_term, $selected_assessment]);
                     $existing_sub = $check_sub->fetch();
                     
+                    // Determine status based on teacher category
+                    $submission_status = 'DRAFT';
+                    $submitted_to_principal_at = null;
+                    
+                    if ($teacher['category'] == 'Class Teacher') {
+                        $submission_status = 'AWAITING_PRINCIPAL';
+                        $submitted_to_principal_at = date('Y-m-d H:i:s');
+                    }
+                    
                     if ($existing_sub) {
-                        $update_sub = $pdo->prepare("UPDATE grade_submissions SET is_locked = 1, teacher_id = ?, submitted_at = NOW() WHERE id = ?");
-                        $update_sub->execute([$teacher['id'], $existing_sub['id']]);
+                        $update_sub = $pdo->prepare("UPDATE grade_submissions SET is_locked = 1, teacher_id = ?, submitted_at = NOW(), status = ?, class_teacher_comment = ?, submitted_to_principal_at = ? WHERE id = ?");
+                        $update_sub->execute([$teacher['id'], $submission_status, $class_teacher_comment, $submitted_to_principal_at, $existing_sub['id']]);
                     } else {
-                        $insert_sub = $pdo->prepare("INSERT INTO grade_submissions (student_id, teacher_id, academic_year, term, assessment_type, is_locked) VALUES (?, ?, ?, ?, ?, 1)");
-                        $insert_sub->execute([$student_id, $teacher['id'], $selected_year, $selected_term, $selected_assessment]);
+                        $insert_sub = $pdo->prepare("INSERT INTO grade_submissions (student_id, teacher_id, academic_year, term, assessment_type, is_locked, status, class_teacher_comment, submitted_to_principal_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)");
+                        $insert_sub->execute([$student_id, $teacher['id'], $selected_year, $selected_term, $selected_assessment, $submission_status, $class_teacher_comment, $submitted_to_principal_at]);
                     }
                 }
                 
@@ -347,6 +356,27 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
             background: #45a049;
             transform: translateY(-1px);
         }
+        .class-teacher-comment-box {
+            margin: 20px 0;
+            padding: 15px;
+            background: #fff9e6;
+            border-left: 4px solid var(--yellow);
+            border-radius: 6px;
+        }
+        .class-teacher-comment-box label {
+            font-weight: 600;
+            color: var(--navy);
+            margin-bottom: 10px;
+            display: block;
+        }
+        .class-teacher-comment-box textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
@@ -479,10 +509,27 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                                                 </div>
                                                 
                                                 <?php if (!$is_locked): ?>
+                                                    <?php if ($teacher['category'] == 'Class Teacher'): ?>
+                                                        <div class="class-teacher-comment-box">
+                                                            <label>📝 Class Teacher's Overall Comment:</label>
+                                                            <textarea name="class_teacher_comment" 
+                                                                      rows="4"
+                                                                      placeholder="Enter your overall assessment of this student's performance across all subjects..."
+                                                                      required></textarea>
+                                                            <small style="color: #666; display: block; margin-top: 5px;">
+                                                                This comment will be reviewed by the Head Teacher and included in the final report card.
+                                                            </small>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    
                                                     <div class="lock-checkbox">
                                                         <input type="checkbox" name="lock_submission" value="1" id="lock_<?php echo $year . '_' . $term . '_' . $assessment; ?>">
                                                         <label for="lock_<?php echo $year . '_' . $term . '_' . $assessment; ?>">
-                                                            🔒 Lock these grades after submission
+                                                            <?php if ($teacher['category'] == 'Class Teacher'): ?>
+                                                                🔒 Lock and Submit to Head Teacher for Review
+                                                            <?php else: ?>
+                                                                🔒 Lock these grades after submission
+                                                            <?php endif; ?>
                                                         </label>
                                                     </div>
                                                     <button type="submit" class="button">💾 Save Grades</button>
@@ -514,7 +561,16 @@ function toggleSection(header) {
 function confirmSubmit(form) {
     const lockCheckbox = form.querySelector('input[name="lock_submission"]');
     if (lockCheckbox && lockCheckbox.checked) {
-        return confirm('⚠️ WARNING: You are about to LOCK these grades.\n\nOnce locked:\n• You cannot edit them\n• Only admin can unlock them\n\nAre you absolutely sure?');
+        <?php if ($teacher['category'] == 'Class Teacher'): ?>
+            const comment = form.querySelector('textarea[name="class_teacher_comment"]');
+            if (!comment || !comment.value.trim()) {
+                alert('⚠️ Please enter a class teacher comment before submitting to the Head Teacher.');
+                return false;
+            }
+            return confirm('⚠️ WARNING: You are about to SUBMIT these grades to the Head Teacher for review.\n\nOnce submitted:\n• You cannot edit them until reviewed\n• The Head Teacher will review and release to parents\n\nAre you absolutely sure?');
+        <?php else: ?>
+            return confirm('⚠️ WARNING: You are about to LOCK these grades.\n\nOnce locked:\n• You cannot edit them\n• Only admin can unlock them\n\nAre you absolutely sure?');
+        <?php endif; ?>
     }
     return true;
 }
