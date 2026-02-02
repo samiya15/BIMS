@@ -306,48 +306,39 @@ function getGradeUpdatePage($curriculum) {
                                     <span class="toggle-icon">▼</span>
                                 </div>
                                 
-                                <div class="collapsible-content">
-                                    <table class="student-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Admission No.</th>
-                                                <th>Name</th>
-                                                <th>Gender</th>
-                                                <?php if ($category != 'Head Teacher'): ?>
-                                                    <th>Actions</th>
-                                                <?php endif; ?>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($class_students as $student): ?>
-                                                <?php $grade_page = getGradeUpdatePage($student['curriculum_name']); ?>
-                                                <tr>
-                                                    <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
-                                                    <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
-                                                    <td><?php echo htmlspecialchars($student['gender']); ?></td>
-                                                    <?php if ($category != 'Head Teacher'): ?>
-                                                        <td>
-                                                            <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
-                                                                Update Grades
-                                                            </a>
-                                                        </td>
-                                                    <?php endif; ?>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <p class="no-students">No students enrolled in <?php echo htmlspecialchars($curr_name); ?> yet.</p>
-                    <?php endif; ?>
-                </div>
+                               <div class="collapsible-content">
+                                  <table class="student-table">
+        <thead>
+            <tr>
+                <th>Admission No.</th>
+                <th>Name</th>
+                <th>Gender</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($class_students as $student): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
+                    <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
+                    <td><?php echo htmlspecialchars($student['gender']); ?></td>
+                    <td>
+                        <?php if ($category == 'Head Teacher'): ?>
+                            <a href="teacher/view_student.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                View All Grades
+                            </a>
+                        <?php else: ?>
+                            <a href="teacher/update_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                Update Grades
+                            </a>
+                        <?php endif; ?>
+                    </td>
+                </tr>
             <?php endforeach; ?>
-        <?php endif; ?>
-    </div>
+        </tbody>
+    </table>
 </div>
-
+                    
 <script>
 function toggleSection(header) {
     const content = header.nextElementSibling;
@@ -364,6 +355,15 @@ window.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+                        <?php endforeach; // end foreach $by_class ?>
+                    <?php else: ?>
+                        <p class="no-students">No students found for this curriculum.</p>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; // end foreach $students_by_curriculum ?>
+        <?php endif; // end if/else for teacher category ?>
+    </div>
+</div>
 
 </body>
 </html>

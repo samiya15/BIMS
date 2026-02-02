@@ -23,27 +23,36 @@ $student = $student_stmt->fetch(PDO::FETCH_ASSOC);
 
 $student_name = ($student['first_name'] ?? 'Student') . ' ' . ($student['last_name'] ?? '');
 
-/* ---------- GET ALL AVAILABLE REPORT CARDS ---------- */
+/* ---------- GET ALL RELEASED REPORT CARDS ---------- */
 $current_year = (int)date('Y');
 $years = range($student['year_of_enrollment'], $current_year);
 $terms = ['Term 1', 'Term 2', 'Term 3'];
 $assessments = ['Opener', 'Mid-Term', 'End-Term'];
 
-// Check which report cards exist
+// Check which report cards are RELEASED
 $existing_reports = [];
 $reports_check = $pdo->prepare("
-    SELECT DISTINCT academic_year, term, assessment_type, COUNT(DISTINCT subject_name) as subject_count
-    FROM grades
-    WHERE student_id = ?
-    GROUP BY academic_year, term, assessment_type
-    HAVING COUNT(DISTINCT subject_name) > 0
-    ORDER BY academic_year DESC, 
-        CASE term 
+    SELECT DISTINCT 
+        gs.academic_year, 
+        gs.term, 
+        gs.assessment_type, 
+        COUNT(DISTINCT g.subject_name) as subject_count
+    FROM grade_submissions gs
+    JOIN grades g ON gs.student_id = g.student_id 
+        AND gs.academic_year = g.academic_year 
+        AND gs.term = g.term 
+        AND gs.assessment_type = g.assessment_type
+    WHERE gs.student_id = ? 
+        AND gs.status = 'RELEASED'
+    GROUP BY gs.academic_year, gs.term, gs.assessment_type
+    HAVING COUNT(DISTINCT g.subject_name) > 0
+    ORDER BY gs.academic_year DESC, 
+        CASE gs.term 
             WHEN 'Term 3' THEN 3 
             WHEN 'Term 2' THEN 2 
             WHEN 'Term 1' THEN 1 
         END DESC,
-        CASE assessment_type
+        CASE gs.assessment_type
             WHEN 'End-Term' THEN 3
             WHEN 'Mid-Term' THEN 2
             WHEN 'Opener' THEN 1
@@ -137,8 +146,8 @@ if (!empty($student['admission_number'])) {
             gap: 15px;
         }
         .report-card-link {
-            background: linear-gradient(135deg, #f4c430 0%, #ddb300 100%);
-            color: var(--black);
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
             padding: 20px;
             border-radius: 8px;
             text-decoration: none;
@@ -151,8 +160,8 @@ if (!empty($student['admission_number'])) {
         }
         .report-card-link:hover {
             transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(244, 196, 48, 0.4);
-            border-color: var(--navy);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+            border-color: white;
         }
         .report-icon {
             font-size: 32px;
@@ -167,15 +176,23 @@ if (!empty($student['admission_number'])) {
         }
         .report-subtitle {
             font-size: 12px;
-            opacity: 0.8;
+            opacity: 0.9;
         }
         .report-count {
             font-size: 11px;
-            background: rgba(0,0,0,0.1);
+            background: rgba(255,255,255,0.3);
             padding: 3px 8px;
             border-radius: 12px;
             margin-top: 5px;
             display: inline-block;
+        }
+        .released-badge {
+            background: #4caf50;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 10px;
         }
     </style>
 </head>
@@ -217,11 +234,15 @@ if (!empty($student['admission_number'])) {
 
         <!-- MY REPORT CARDS -->
         <div class="card">
-            <h2>📄 My Report Cards</h2>
-            <p style="color: #666; margin-bottom: 20px;">Click on any report card to view and print your results</p>
+            <h2>📄 My Report Cards <span class="released-badge">✅ Released Reports Only</span></h2>
+            <p style="color: #666; margin-bottom: 20px;">Click on any report card to view and print your results. Only approved reports are shown here.</p>
 
             <?php if (empty($existing_reports)): ?>
-                <p class="no-data">No report cards available yet. Your teacher will upload your grades soon.</p>
+                <div style="text-align: center; padding: 60px 20px; background: #f9f9f9; border-radius: 8px;">
+                    <div style="font-size: 64px; margin-bottom: 20px;">📋</div>
+                    <h3 style="color: var(--navy); margin-bottom: 10px;">No Report Cards Available Yet</h3>
+                    <p style="color: #666;">Your teacher will upload your grades soon. Once the Head Teacher approves them, your report cards will appear here.</p>
+                </div>
             <?php else: ?>
                 <?php foreach (array_reverse($years) as $year_index => $year): ?>
                     <?php if (isset($existing_reports[$year])): ?>

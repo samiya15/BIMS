@@ -11,7 +11,41 @@ if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'Teacher' && $_SESSION['
 $student_id = (int)($_GET['student_id'] ?? 0);
 $academic_year = (int)($_GET['year'] ?? date('Y'));
 $term = $_GET['term'] ?? 'Term 1';
-$assessment = $_GET['assessment'] ?? 'Opener'; // Must have assessment
+$assessment = $_GET['assessment'] ?? 'Opener';
+
+/* ---------- CHECK IF REPORT IS RELEASED (For Students/Parents) ---------- */
+if ($_SESSION['role'] === 'Student' || $_SESSION['role'] === 'Parent') {
+    $release_check = $pdo->prepare("
+        SELECT status 
+        FROM grade_submissions 
+        WHERE student_id = ? 
+            AND academic_year = ? 
+            AND term = ? 
+            AND assessment_type = ?
+    ");
+    $release_check->execute([$student_id, $academic_year, $term, $assessment]);
+    $submission = $release_check->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$submission || $submission['status'] !== 'RELEASED') {
+        die("
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <title>Report Not Available</title>
+            <link rel='stylesheet' href='../assets/css/admin.css'>
+        </head>
+        <body>
+            <div style='max-width: 600px; margin: 100px auto; text-align: center; padding: 40px; background: white; border-radius: 10px;'>
+                <h2 style='color: #f44336;'>⚠️ Report Card Not Available</h2>
+                <p style='color: #666; margin-top: 20px;'>This report card has not been released yet. Please wait for your Head Teacher to approve and release it.</p>
+                <a href='javascript:history.back()' style='display: inline-block; margin-top: 30px; padding: 12px 24px; background: var(--navy); color: white; text-decoration: none; border-radius: 6px;'>← Go Back</a>
+            </div>
+        </body>
+        </html>
+        ");
+    }
+}
 
 /* ---------- GET STUDENT INFO ---------- */
 $student_stmt = $pdo->prepare("
@@ -51,18 +85,33 @@ $grades_raw = $grades_stmt->fetchAll(PDO::FETCH_ASSOC);
 // Organize by subject
 $grades_by_subject = [];
 foreach ($grades_raw as $grade) {
-  $grades_by_subject[$grade['subject_name']] = [
-    'score' => $grade['score'],
-    'rats_score' => $grade['rats_score'],
-    'final_score' => $grade['final_score'],
-    'grade' => $grade['grade'],
-    'points' => $grade['grade_points'],
-    'teacher_name' => $grade['teacher_first_name'] && $grade['teacher_last_name'] 
-        ? 'Tr. ' . $grade['teacher_first_name'] . ' ' . substr($grade['teacher_last_name'], 0, 1) . '.'
-        : '-',
-    'comment' => $grade['teacher_comment'] ?? ''
-];    
+    $grades_by_subject[$grade['subject_name']] = [
+        'score' => $grade['score'],
+        'rats_score' => $grade['rats_score'],
+        'final_score' => $grade['final_score'],
+        'grade' => $grade['grade'],
+        'points' => $grade['grade_points'],
+        'teacher_name' => $grade['teacher_first_name'] && $grade['teacher_last_name'] 
+            ? 'Tr. ' . $grade['teacher_first_name'] . ' ' . substr($grade['teacher_last_name'], 0, 1) . '.'
+            : '-',
+        'comment' => $grade['teacher_comment'] ?? ''
+    ];    
 }
+
+/* ---------- GET COMMENTS ---------- */
+$comments_stmt = $pdo->prepare("
+    SELECT class_teacher_comment, principal_comment 
+    FROM grade_submissions 
+    WHERE student_id = ? 
+        AND academic_year = ? 
+        AND term = ? 
+        AND assessment_type = ?
+");
+$comments_stmt->execute([$student_id, $academic_year, $term, $assessment]);
+$comments = $comments_stmt->fetch(PDO::FETCH_ASSOC);
+
+$class_teacher_comment = $comments['class_teacher_comment'] ?? '';
+$principal_comment = $comments['principal_comment'] ?? '';
 
 /* ---------- CALCULATE OVERALL STATS ---------- */
 $total_points = 0;
@@ -87,7 +136,7 @@ elseif ($mean_grade_points >= 2.5) $overall_grade = 'AE2';
 elseif ($mean_grade_points >= 1.5) $overall_grade = 'BE1';
 else $overall_grade = 'BE2';
 
-$class_position = '-'; // Implement ranking if needed
+$class_position = '-';
 ?>
 
 <!DOCTYPE html>
@@ -416,14 +465,14 @@ $class_position = '-'; // Implement ranking if needed
                 $grade_data = $grades_by_subject[$subject] ?? null;
                 if (!$grade_data) continue;
                 ?>
-           <tr>
-    <td class="subject-name"><?php echo strtoupper(htmlspecialchars($subject)); ?></td>
-    <td><strong><?php echo $grade_data['final_score']; ?></strong></td>
-    <td><span class="grade-badge grade-<?php echo $grade_data['grade']; ?>"><?php echo $grade_data['grade']; ?></span></td>
-    <td><strong><?php echo $grade_data['points']; ?></strong></td>
-    <td style="font-size: 11px;"><?php echo htmlspecialchars($grade_data['teacher_name']); ?></td>
-    <td style="font-size: 10px; text-align: left;"><?php echo htmlspecialchars($grade_data['comment']); ?></td>
-</tr>
+                <tr>
+                    <td class="subject-name"><?php echo strtoupper(htmlspecialchars($subject)); ?></td>
+                    <td><strong><?php echo $grade_data['final_score']; ?></strong></td>
+                    <td><span class="grade-badge grade-<?php echo $grade_data['grade']; ?>"><?php echo $grade_data['grade']; ?></span></td>
+                    <td><strong><?php echo $grade_data['points']; ?></strong></td>
+                    <td style="font-size: 11px;"><?php echo htmlspecialchars($grade_data['teacher_name']); ?></td>
+                    <td style="font-size: 10px; text-align: left;"><?php echo htmlspecialchars($grade_data['comment']); ?></td>
+                </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
@@ -459,51 +508,52 @@ $class_position = '-'; // Implement ranking if needed
         <div class="rubric-item" style="background: #f44336; color: white;">BE1 (2 pts)</div>
         <div class="rubric-item" style="background: #f44336; color: white;">BE2 (1 pt)</div>
     </div>
+
     <!-- COMMENTS -->
-<div class="comments-section">
-    <div class="comment-box">
-        <h4>CLASS TEACHER'S COMMENTS:</h4>
-        <div style="min-height: 60px; color: #888; font-style: italic;">
-            [Comments to be added by class teacher]
+    <div class="comments-section">
+        <div class="comment-box">
+            <h4>CLASS TEACHER'S COMMENTS:</h4>
+            <div style="min-height: 60px;">
+                <?php echo $class_teacher_comment ? htmlspecialchars($class_teacher_comment) : '<span style="color: #888; font-style: italic;">[Comments to be added by class teacher]</span>'; ?>
+            </div>
+        </div>
+        
+        <div class="comment-box">
+            <h4>PRINCIPAL'S COMMENTS:</h4>
+            <div style="min-height: 60px;">
+                <?php echo $principal_comment ? htmlspecialchars($principal_comment) : '<span style="color: #888; font-style: italic;">[Comments to be added by principal]</span>'; ?>
+            </div>
+        </div>
+        
+        <div class="comment-box">
+            <h4>PARENT'S COMMENT:</h4>
+            <div style="min-height: 60px; color: #888; font-style: italic;">
+                [Comments to be added by parent]
+            </div>
         </div>
     </div>
-    
-    <div class="comment-box">
-        <h4>PRINCIPAL'S COMMENTS:</h4>
-        <div style="min-height: 60px; color: #888; font-style: italic;">
-            [Comments to be added by principal]
-        </div>
-    </div>
-    
-    <div class="comment-box">
-        <h4>PARENT'S COMMENT:</h4>
-        <div style="min-height: 60px; color: #888; font-style: italic;">
-            [Comments to be added by parent]
-        </div>
-    </div>
-</div>
 
-<!-- SIGNATURES -->
-<div class="signature-section">
-    <div>
-        <div class="signature-line">Class Teacher</div>
-        <div style="font-size: 11px; margin-top: 5px; text-align: center;">Date: _______________</div>
+    <!-- SIGNATURES -->
+    <div class="signature-section">
+        <div>
+            <div class="signature-line">Class Teacher</div>
+            <div style="font-size: 11px; margin-top: 5px; text-align: center;">Date: _______________</div>
+        </div>
+        <div>
+            <div class="signature-line">Principal</div>
+            <div style="font-size: 11px; margin-top: 5px; text-align: center;">Date: _______________</div>
+        </div>
+        <div>
+            <div class="signature-line">Parent</div>
+            <div style="font-size: 11px; margin-top: 5px; text-align: center;">Date: _______________</div>
+        </div>
     </div>
-    <div>
-        <div class="signature-line">Principal</div>
-        <div style="font-size: 11px; margin-top: 5px; text-align: center;">Date: _______________</div>
-    </div>
-    <div>
-        <div class="signature-line">Parent</div>
-        <div style="font-size: 11px; margin-top: 5px; text-align: center;">Date: _______________</div>
-    </div>
-</div>
 
-<!-- TERM DATES -->
-<div style="text-align: center; margin-top: 20px; font-size: 12px; color: #666;">
-    <strong>Opening Date:</strong> _______________  &nbsp;&nbsp;&nbsp;
-    <strong>Closing Date:</strong> _______________
-</div>
+    <!-- TERM DATES -->
+    <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #666;">
+        <strong>Opening Date:</strong> _______________  &nbsp;&nbsp;&nbsp;
+        <strong>Closing Date:</strong> _______________
+    </div>
 </div>
 </body>
 </html>
