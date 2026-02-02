@@ -309,53 +309,43 @@ try {
                     <?php echo count($pending_reviews); ?> report<?php echo count($pending_reviews) > 1 ? 's' : ''; ?> awaiting your approval
                 </div>
                 <p style="margin-bottom: 15px;">Class teachers have submitted these reports for your review and approval.</p>
+                <a href="teacher/review_student_reports.php" class="review-button">
+                    Review & Approve Reports →
+                </a>
 
-                <?php 
-                // Group by curriculum
-                $reviews_by_curriculum = [];
-                foreach ($pending_reviews as $review) {
-                    $reviews_by_curriculum[$review['curriculum_name']][] = $review;
-                }
-                
-                foreach ($reviews_by_curriculum as $curr_name => $curr_reviews): 
-                ?>
-                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                        <h4 style="color: var(--navy); margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid var(--yellow);">
-                            <?php echo htmlspecialchars($curr_name); ?> Curriculum (<?php echo count($curr_reviews); ?> pending)
-                        </h4>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: var(--navy); color: white;">
-                                    <th style="padding: 10px; text-align: left; font-size: 12px;">Student</th>
-                                    <th style="padding: 10px; text-align: left; font-size: 12px;">Class</th>
-                                    <th style="padding: 10px; text-align: left; font-size: 12px;">Year</th>
-                                    <th style="padding: 10px; text-align: left; font-size: 12px;">Term</th>
-                                    <th style="padding: 10px; text-align: left; font-size: 12px;">Assessment</th>
-                                    <th style="padding: 10px; text-align: left; font-size: 12px;">Submitted</th>
-                                    <th style="padding: 10px; text-align: left; font-size: 12px;">Action</th>
+                <div class="pending-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Class</th>
+                                <th>Year</th>
+                                <th>Term</th>
+                                <th>Assessment</th>
+                                <th>Submitted</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach (array_slice($pending_reviews, 0, 5) as $review): ?>
+                                <tr>
+                                    <td><strong><?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?></strong></td>
+                                    <td><?php echo htmlspecialchars($review['curriculum_name'] . ' - ' . $review['class_name']); ?></td>
+                                    <td><?php echo $review['academic_year']; ?></td>
+                                    <td><?php echo $review['term']; ?></td>
+                                    <td><?php echo $review['assessment_type']; ?></td>
+                                    <td><?php echo date('M d', strtotime($review['submitted_to_principal_at'])); ?></td>
+                                    <td>
+                                        <a href="teacher/add_principal_comment.php?student_id=<?php echo $review['student_id']; ?>&year=<?php echo $review['academic_year']; ?>&term=<?php echo urlencode($review['term']); ?>&assessment=<?php echo urlencode($review['assessment_type']); ?>" 
+                                           class="add-comment-btn">
+                                            Add Comment & Release
+                                        </a>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($curr_reviews as $review): ?>
-                                    <tr style="border-bottom: 1px solid #ddd;">
-                                        <td style="padding: 10px; font-size: 13px;"><strong><?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?></strong></td>
-                                        <td style="padding: 10px; font-size: 13px;"><?php echo htmlspecialchars($review['class_name']); ?></td>
-                                        <td style="padding: 10px; font-size: 13px;"><?php echo $review['academic_year']; ?></td>
-                                        <td style="padding: 10px; font-size: 13px;"><?php echo $review['term']; ?></td>
-                                        <td style="padding: 10px; font-size: 13px;"><?php echo $review['assessment_type']; ?></td>
-                                        <td style="padding: 10px; font-size: 13px;"><?php echo date('M d', strtotime($review['submitted_to_principal_at'])); ?></td>
-                                        <td style="padding: 10px;">
-                                            <a href="teacher/add_principal_comment.php?student_id=<?php echo $review['student_id']; ?>&year=<?php echo $review['academic_year']; ?>&term=<?php echo urlencode($review['term']); ?>&assessment=<?php echo urlencode($review['assessment_type']); ?>" 
-                                               class="add-comment-btn">
-                                                Add Comment & Release
-                                            </a>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endforeach; ?>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         <?php endif; ?>
 

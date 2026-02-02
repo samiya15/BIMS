@@ -82,18 +82,21 @@ $grades_stmt = $pdo->prepare("
 $grades_stmt->execute([$student_id, $academic_year, $term, $assessment]);
 $grades_raw = $grades_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Organize by subject
+// Organize by subject - KEEP INDIVIDUAL TEACHER NAMES
 $grades_by_subject = [];
 foreach ($grades_raw as $grade) {
+    $teacher_name = '-';
+    if ($grade['teacher_first_name'] && $grade['teacher_last_name']) {
+        $teacher_name = 'Tr. ' . $grade['teacher_first_name'] . ' ' . substr($grade['teacher_last_name'], 0, 1) . '.';
+    }
+    
     $grades_by_subject[$grade['subject_name']] = [
         'score' => $grade['score'],
         'rats_score' => $grade['rats_score'],
         'final_score' => $grade['final_score'],
         'grade' => $grade['grade'],
         'points' => $grade['grade_points'],
-        'teacher_name' => $grade['teacher_first_name'] && $grade['teacher_last_name'] 
-            ? 'Tr. ' . $grade['teacher_first_name'] . ' ' . substr($grade['teacher_last_name'], 0, 1) . '.'
-            : '-',
+        'teacher_name' => $teacher_name,
         'comment' => $grade['teacher_comment'] ?? ''
     ];    
 }
