@@ -144,39 +144,59 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $points_row = $points_stmt->fetch();
                     $grade_points = $points_row ? $points_row['points'] : null;
                     
-                    $check_stmt = $pdo->prepare("SELECT id FROM grades WHERE student_id = ? AND academic_year = ? AND term = ? AND assessment_type = ? AND subject_name = ?");
+                    $check_stmt = $pdo->prepare("SELECT id, teacher_id FROM grades WHERE student_id = ? AND academic_year = ? AND term = ? AND assessment_type = ? AND subject_name = ?");
                     $check_stmt->execute([$student_id, $selected_year, $selected_term, $selected_assessment, $subject]);
                     $existing = $check_stmt->fetch();
                     
                     if ($existing) {
+                        // Preserve original teacher_id if class teacher is just reviewing
+                        $teacher_id_to_use = $existing['teacher_id'];
+                        
+                        // Only change teacher_id if:
+                        // 1. Current teacher is a Subject Teacher (they're entering their own grades)
+                        // 2. OR there was no teacher_id before (first time entry)
+                        if ($teacher['category'] == 'Subject Teacher' || empty($existing['teacher_id'])) {
+                            $teacher_id_to_use = $teacher['id'];
+                        }
+                        
                         $update_stmt = $pdo->prepare("UPDATE grades SET grade = ?, score = ?, rats_score = ?, final_score = ?, grade_points = ?, teacher_id = ?, is_locked = ?, teacher_comment = ?, updated_at = NOW() WHERE id = ?");
-                        $update_stmt->execute([$grade, $score, $rats_score, $final_score, $grade_points, $teacher['id'], $lock_submission, $teacher_comment, $existing['id']]);
+                        $update_stmt->execute([$grade, $score, $rats_score, $final_score, $grade_points, $teacher_id_to_use, $lock_submission, $teacher_comment, $existing['id']]);
                     } else {
+                        // New grade entry - use current teacher's id
                         $insert_stmt = $pdo->prepare("INSERT INTO grades (student_id, subject_name, grade, score, rats_score, final_score, grade_points, term, assessment_type, academic_year, teacher_id, is_locked, teacher_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                         $insert_stmt->execute([$student_id, $subject, $grade, $score, $rats_score, $final_score, $grade_points, $selected_term, $selected_assessment, $selected_year, $teacher['id'], $lock_submission, $teacher_comment]);
                     }
                 }
                 
                 if ($lock_submission) {
+                    // Get class teacher comment if provided (only for class teachers)
+                    $class_teacher_comment = isset($_POST['class_teacher_comment']) ? trim($_POST['class_teacher_comment']) : null;
+                    
                     $check_sub = $pdo->prepare("SELECT id FROM grade_submissions WHERE student_id = ? AND academic_year = ? AND term = ? AND assessment_type = ?");
                     $check_sub->execute([$student_id, $selected_year, $selected_term, $selected_assessment]);
                     $existing_sub = $check_sub->fetch();
                     
-                    // Determine status based on teacher category
-                    $submission_status = 'DRAFT';
-                    $submitted_to_principal_at = null;
-                    
+                    // Only Class Teachers submit to principal with status
                     if ($teacher['category'] == 'Class Teacher') {
                         $submission_status = 'AWAITING_PRINCIPAL';
                         $submitted_to_principal_at = date('Y-m-d H:i:s');
-                    }
-                    
-                    if ($existing_sub) {
-                        $update_sub = $pdo->prepare("UPDATE grade_submissions SET is_locked = 1, teacher_id = ?, submitted_at = NOW(), status = ?, class_teacher_comment = ?, submitted_to_principal_at = ? WHERE id = ?");
-                        $update_sub->execute([$teacher['id'], $submission_status, $class_teacher_comment, $submitted_to_principal_at, $existing_sub['id']]);
+                        
+                        if ($existing_sub) {
+                            $update_sub = $pdo->prepare("UPDATE grade_submissions SET is_locked = 1, teacher_id = ?, submitted_at = NOW(), status = ?, class_teacher_comment = ?, submitted_to_principal_at = ? WHERE id = ?");
+                            $update_sub->execute([$teacher['id'], $submission_status, $class_teacher_comment, $submitted_to_principal_at, $existing_sub['id']]);
+                        } else {
+                            $insert_sub = $pdo->prepare("INSERT INTO grade_submissions (student_id, teacher_id, academic_year, term, assessment_type, is_locked, status, class_teacher_comment, submitted_to_principal_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)");
+                            $insert_sub->execute([$student_id, $teacher['id'], $selected_year, $selected_term, $selected_assessment, $submission_status, $class_teacher_comment, $submitted_to_principal_at]);
+                        }
                     } else {
-                        $insert_sub = $pdo->prepare("INSERT INTO grade_submissions (student_id, teacher_id, academic_year, term, assessment_type, is_locked, status, class_teacher_comment, submitted_to_principal_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)");
-                        $insert_sub->execute([$student_id, $teacher['id'], $selected_year, $selected_term, $selected_assessment, $submission_status, $class_teacher_comment, $submitted_to_principal_at]);
+                        // Subject Teachers just lock, no status
+                        if ($existing_sub) {
+                            $update_sub = $pdo->prepare("UPDATE grade_submissions SET is_locked = 1, teacher_id = ?, submitted_at = NOW() WHERE id = ?");
+                            $update_sub->execute([$teacher['id'], $existing_sub['id']]);
+                        } else {
+                            $insert_sub = $pdo->prepare("INSERT INTO grade_submissions (student_id, teacher_id, academic_year, term, assessment_type, is_locked) VALUES (?, ?, ?, ?, ?, 1)");
+                            $insert_sub->execute([$student_id, $teacher['id'], $selected_year, $selected_term, $selected_assessment]);
+                        }
                     }
                 }
                 
