@@ -54,6 +54,17 @@ if ($category == 'Head Teacher') {
     $pending_reviews = $pending_stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/* ---------- FUNCTION TO GET CORRECT UPDATE PAGE ---------- */
+function getGradeUpdatePage($curriculum_name) {
+    if ($curriculum_name == '8-4-4') {
+        return 'teacher/update_grades_844.php';
+    } elseif ($curriculum_name == 'IGCSE') {
+        return 'teacher/update_grades_igcse.php';
+    } else {
+        return 'teacher/update_grades.php'; // CBE
+    }
+}
+
 /* ---------- GET STUDENTS BASED ON TEACHER CATEGORY ---------- */
 $students_by_curriculum = [];
 
@@ -378,12 +389,13 @@ try {
                         </thead>
                         <tbody>
                             <?php foreach ($my_students as $student): ?>
+                                <?php $grade_page = getGradeUpdatePage($student['curriculum_name']); ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
                                     <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
                                     <td><?php echo htmlspecialchars($student['gender']); ?></td>
                                     <td>
-                                        <a href="teacher/update_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                        <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
                                             Update Grades
                                         </a>
                                     </td>
@@ -441,6 +453,7 @@ try {
                                         </thead>
                                         <tbody>
                                             <?php foreach ($class_students as $student): ?>
+                                                <?php $grade_page = getGradeUpdatePage($curr_name); ?>
                                                 <tr>
                                                     <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
                                                     <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
@@ -451,7 +464,7 @@ try {
                                                                 View All Grades
                                                             </a>
                                                         <?php else: ?>
-                                                            <a href="teacher/update_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                                            <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
                                                                 Update Grades
                                                             </a>
                                                         <?php endif; ?>

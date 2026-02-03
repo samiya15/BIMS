@@ -129,17 +129,48 @@ foreach ($grades_by_subject as $subject => $data) {
 
 $mean_grade_points = $subjects_with_grades > 0 ? round($total_points / $subjects_with_grades, 2) : 0;
 
-// Determine overall grade
-if ($mean_grade_points >= 7.5) $overall_grade = 'EE1';
-elseif ($mean_grade_points >= 6.5) $overall_grade = 'EE2';
-elseif ($mean_grade_points >= 5.5) $overall_grade = 'ME1';
-elseif ($mean_grade_points >= 4.5) $overall_grade = 'ME2';
-elseif ($mean_grade_points >= 3.5) $overall_grade = 'AE1';
-elseif ($mean_grade_points >= 2.5) $overall_grade = 'AE2';
-elseif ($mean_grade_points >= 1.5) $overall_grade = 'BE1';
-else $overall_grade = 'BE2';
+// Determine overall grade for 8-4-4
+if ($mean_grade_points >= 11.5) $overall_grade = 'A';
+elseif ($mean_grade_points >= 10.5) $overall_grade = 'A-';
+elseif ($mean_grade_points >= 9.5) $overall_grade = 'B+';
+elseif ($mean_grade_points >= 8.5) $overall_grade = 'B';
+elseif ($mean_grade_points >= 7.5) $overall_grade = 'B-';
+elseif ($mean_grade_points >= 6.5) $overall_grade = 'C+';
+elseif ($mean_grade_points >= 5.5) $overall_grade = 'C';
+elseif ($mean_grade_points >= 4.5) $overall_grade = 'C-';
+elseif ($mean_grade_points >= 3.5) $overall_grade = 'D+';
+elseif ($mean_grade_points >= 2.5) $overall_grade = 'D';
+elseif ($mean_grade_points >= 1.5) $overall_grade = 'D-';
+else $overall_grade = 'E';
+
+/* ---------- CALCULATE CLASS POSITION ---------- */
+$position_stmt = $pdo->prepare("
+    SELECT 
+        s.id,
+        AVG(g.grade_points) as avg_points
+    FROM students s
+    JOIN grades g ON s.id = g.student_id
+    WHERE s.class_level_id = (SELECT class_level_id FROM students WHERE id = ?)
+        AND g.academic_year = ?
+        AND g.term = ?
+        AND g.assessment_type = ?
+    GROUP BY s.id
+    ORDER BY avg_points DESC
+");
+$position_stmt->execute([$student_id, $academic_year, $term, $assessment]);
+$rankings = $position_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $class_position = '-';
+$position = 1;
+foreach ($rankings as $rank) {
+    if ($rank['id'] == $student_id) {
+        $class_position = $position;
+        break;
+    }
+    $position++;
+}
+
+$total_students = count($rankings);
 ?>
 
 <!DOCTYPE html>
@@ -288,10 +319,18 @@ $class_position = '-';
             font-weight: 600;
         }
         
-        .grade-EE1, .grade-EE2 { background: #4caf50; color: white; }
-        .grade-ME1, .grade-ME2 { background: #2196f3; color: white; }
-        .grade-AE1, .grade-AE2 { background: #ff9800; color: white; }
-        .grade-BE1, .grade-BE2 { background: #f44336; color: white; }
+        .grade-A { background: #4caf50; color: white; }
+        .grade-A- { background: #66bb6a; color: white; }
+        .grade-B\+ { background: #2196f3; color: white; }
+        .grade-B { background: #42a5f5; color: white; }
+        .grade-B- { background: #64b5f6; color: white; }
+        .grade-C\+ { background: #ff9800; color: white; }
+        .grade-C { background: #ffa726; color: white; }
+        .grade-C- { background: #ffb74d; color: white; }
+        .grade-D\+ { background: #f44336; color: white; }
+        .grade-D { background: #ef5350; color: white; }
+        .grade-D- { background: #e57373; color: white; }
+        .grade-E { background: #9e9e9e; color: white; }
         
         .overall-summary {
             display: flex;
@@ -436,18 +475,18 @@ $class_position = '-';
             <span class="info-label">ACADEMIC YEAR:</span> <?php echo $academic_year; ?>
         </div>
         <div class="info-item">
-            <span class="info-label">MEAN POINTS:</span> <?php echo number_format($mean_grade_points, 2); ?> / 8
+            <span class="info-label">MEAN POINTS:</span> <?php echo number_format($mean_grade_points, 2); ?> / 12
         </div>
         <div class="info-item">
-            <span class="info-label">CLASS POSITION:</span> <?php echo $class_position; ?>
+            <span class="info-label">CLASS POSITION:</span> <?php echo $class_position; ?><?php if ($class_position != '-') echo ' / ' . $total_students; ?>
         </div>
     </div>
 
     <!-- GRADING SCALE INFO -->
     <div style="margin-bottom: 15px; font-size: 11px; padding: 10px; background: #f0f0f0; border-radius: 4px;">
-        <strong>GRADING SCALE:</strong> 
-        [90-100] = EE1 (8pts) | [75-89] = EE2 (7pts) | [58-74] = ME1 (6pts) | [41-57] = ME2 (5pts) | 
-        [31-40] = AE1 (4pts) | [21-30] = AE2 (3pts) | [11-20] = BE1 (2pts) | [1-10] = BE2 (1pt)
+        <strong>GRADING SCALE (8-4-4 SYSTEM):</strong> 
+        A (80-100) = 12pts | A- (75-79) = 11pts | B+ (70-74) = 10pts | B (65-69) = 9pts | B- (60-64) = 8pts | 
+        C+ (55-59) = 7pts | C (50-54) = 6pts | C- (45-49) = 5pts | D+ (40-44) = 4pts | D (35-39) = 3pts | D- (30-34) = 2pts | E (0-29) = 1pt
     </div>
 
     <!-- GRADES TABLE -->
@@ -496,7 +535,7 @@ $class_position = '-';
         </div>
         <div class="overall-item">
             <div class="overall-label">CLASS POSITION</div>
-            <div class="overall-value"><?php echo $class_position; ?></div>
+            <div class="overall-value"><?php echo $class_position; ?><?php if ($class_position != '-') echo ' / ' . $total_students; ?></div>
         </div>
     </div>
 

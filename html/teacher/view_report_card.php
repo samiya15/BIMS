@@ -139,7 +139,34 @@ elseif ($mean_grade_points >= 2.5) $overall_grade = 'AE2';
 elseif ($mean_grade_points >= 1.5) $overall_grade = 'BE1';
 else $overall_grade = 'BE2';
 
+/* ---------- CALCULATE CLASS POSITION ---------- */
+$position_stmt = $pdo->prepare("
+    SELECT 
+        s.id,
+        AVG(g.grade_points) as avg_points
+    FROM students s
+    JOIN grades g ON s.id = g.student_id
+    WHERE s.class_level_id = (SELECT class_level_id FROM students WHERE id = ?)
+        AND g.academic_year = ?
+        AND g.term = ?
+        AND g.assessment_type = ?
+    GROUP BY s.id
+    ORDER BY avg_points DESC
+");
+$position_stmt->execute([$student_id, $academic_year, $term, $assessment]);
+$rankings = $position_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 $class_position = '-';
+$position = 1;
+foreach ($rankings as $rank) {
+    if ($rank['id'] == $student_id) {
+        $class_position = $position;
+        break;
+    }
+    $position++;
+}
+
+$total_students = count($rankings);
 ?>
 
 <!DOCTYPE html>
@@ -439,7 +466,7 @@ $class_position = '-';
             <span class="info-label">MEAN POINTS:</span> <?php echo number_format($mean_grade_points, 2); ?> / 8
         </div>
         <div class="info-item">
-            <span class="info-label">CLASS POSITION:</span> <?php echo $class_position; ?>
+            <span class="info-label">CLASS POSITION:</span> <?php echo $class_position; ?><?php if ($class_position != '-') echo ' / ' . $total_students; ?>
         </div>
     </div>
 
@@ -496,7 +523,7 @@ $class_position = '-';
         </div>
         <div class="overall-item">
             <div class="overall-label">CLASS POSITION</div>
-            <div class="overall-value"><?php echo $class_position; ?></div>
+            <div class="overall-value"><?php echo $class_position; ?><?php if ($class_position != '-') echo ' / ' . $total_students; ?></div>
         </div>
     </div>
 

@@ -129,17 +129,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     }
                     
                     $grade = '';
-                    if ($final_score >= 90) $grade = 'EE1';
-                    elseif ($final_score >= 75) $grade = 'EE2';
-                    elseif ($final_score >= 58) $grade = 'ME1';
-                    elseif ($final_score >= 41) $grade = 'ME2';
-                    elseif ($final_score >= 31) $grade = 'AE1';
-                    elseif ($final_score >= 21) $grade = 'AE2';
-                    elseif ($final_score >= 11) $grade = 'BE1';
-                    else $grade = 'BE2';
+                    if ($final_score >= 80) $grade = 'A';
+                    elseif ($final_score >= 75) $grade = 'A-';
+                    elseif ($final_score >= 70) $grade = 'B+';
+                    elseif ($final_score >= 65) $grade = 'B';
+                    elseif ($final_score >= 60) $grade = 'B-';
+                    elseif ($final_score >= 55) $grade = 'C+';
+                    elseif ($final_score >= 50) $grade = 'C';
+                    elseif ($final_score >= 45) $grade = 'C-';
+                    elseif ($final_score >= 40) $grade = 'D+';
+                    elseif ($final_score >= 35) $grade = 'D';
+                    elseif ($final_score >= 30) $grade = 'D-';
+                    else $grade = 'E';
                     
                     $grade_points = null;
-                    $points_stmt = $pdo->prepare("SELECT points FROM cbc_grading_scale WHERE grade_code = ?");
+                    $points_stmt = $pdo->prepare("SELECT points FROM system_844_grading_scale WHERE grade_code = ?");
                     $points_stmt->execute([$grade]);
                     $points_row = $points_stmt->fetch();
                     $grade_points = $points_row ? $points_row['points'] : null;
