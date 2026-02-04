@@ -117,30 +117,30 @@ $class_teacher_comment = $comments['class_teacher_comment'] ?? '';
 $principal_comment = $comments['principal_comment'] ?? '';
 
 /* ---------- CALCULATE OVERALL STATS ---------- */
-$total_points = 0;
+$total_score = 0;
 $subjects_with_grades = 0;
 
 foreach ($grades_by_subject as $subject => $data) {
-    if ($data['points'] !== null) {
-        $total_points += $data['points'];
+    if ($data['final_score'] !== null) {
+        $total_score += $data['final_score'];
         $subjects_with_grades++;
     }
 }
 
-$mean_grade_points = $subjects_with_grades > 0 ? round($total_points / $subjects_with_grades, 2) : 0;
+$mean_score = $subjects_with_grades > 0 ? round($total_score / $subjects_with_grades, 2) : 0;
 
-// Determine overall grade for 8-4-4
-if ($mean_grade_points >= 11.5) $overall_grade = 'A';
-elseif ($mean_grade_points >= 10.5) $overall_grade = 'A-';
-elseif ($mean_grade_points >= 9.5) $overall_grade = 'B+';
-elseif ($mean_grade_points >= 8.5) $overall_grade = 'B';
-elseif ($mean_grade_points >= 7.5) $overall_grade = 'B-';
-elseif ($mean_grade_points >= 6.5) $overall_grade = 'C+';
-elseif ($mean_grade_points >= 5.5) $overall_grade = 'C';
-elseif ($mean_grade_points >= 4.5) $overall_grade = 'C-';
-elseif ($mean_grade_points >= 3.5) $overall_grade = 'D+';
-elseif ($mean_grade_points >= 2.5) $overall_grade = 'D';
-elseif ($mean_grade_points >= 1.5) $overall_grade = 'D-';
+// Determine overall grade for 8-4-4 based on mean score
+if ($mean_score >= 80) $overall_grade = 'A';
+elseif ($mean_score >= 75) $overall_grade = 'A-';
+elseif ($mean_score >= 70) $overall_grade = 'B+';
+elseif ($mean_score >= 65) $overall_grade = 'B';
+elseif ($mean_score >= 60) $overall_grade = 'B-';
+elseif ($mean_score >= 55) $overall_grade = 'C+';
+elseif ($mean_score >= 50) $overall_grade = 'C';
+elseif ($mean_score >= 45) $overall_grade = 'C-';
+elseif ($mean_score >= 40) $overall_grade = 'D+';
+elseif ($mean_score >= 35) $overall_grade = 'D';
+elseif ($mean_score >= 30) $overall_grade = 'D-';
 else $overall_grade = 'E';
 
 /* ---------- CALCULATE CLASS POSITION ---------- */
@@ -319,18 +319,18 @@ $total_students = count($rankings);
             font-weight: 600;
         }
         
-        .grade-A { background: #4caf50; color: white; }
-        .grade-A- { background: #66bb6a; color: white; }
-        .grade-B\+ { background: #2196f3; color: white; }
-        .grade-B { background: #42a5f5; color: white; }
-        .grade-B- { background: #64b5f6; color: white; }
-        .grade-C\+ { background: #ff9800; color: white; }
-        .grade-C { background: #ffa726; color: white; }
-        .grade-C- { background: #ffb74d; color: white; }
-        .grade-D\+ { background: #f44336; color: white; }
-        .grade-D { background: #ef5350; color: white; }
-        .grade-D- { background: #e57373; color: white; }
-        .grade-E { background: #9e9e9e; color: white; }
+        .grade-A { color:black; }
+        .grade-A- { color:black}
+        .grade-B\+ { color:black }
+        .grade-B { color:black }
+        .grade-B- { color:black; }
+        .grade-C\+ { color:black; }
+        .grade-C { color:black; }
+        .grade-C- { color:black; }
+        .grade-D\+ { color:black; }
+        .grade-D { color:black; }
+        .grade-D- { color:black; }
+        .grade-E { color:black; }
         
         .overall-summary {
             display: flex;
@@ -475,7 +475,7 @@ $total_students = count($rankings);
             <span class="info-label">ACADEMIC YEAR:</span> <?php echo $academic_year; ?>
         </div>
         <div class="info-item">
-            <span class="info-label">MEAN POINTS:</span> <?php echo number_format($mean_grade_points, 2); ?> / 12
+            <span class="info-label">MEAN SCORE:</span> <?php echo number_format($mean_score, 2); ?>
         </div>
         <div class="info-item">
             <span class="info-label">CLASS POSITION:</span> <?php echo $class_position; ?><?php if ($class_position != '-') echo ' / ' . $total_students; ?>
@@ -485,8 +485,8 @@ $total_students = count($rankings);
     <!-- GRADING SCALE INFO -->
     <div style="margin-bottom: 15px; font-size: 11px; padding: 10px; background: #f0f0f0; border-radius: 4px;">
         <strong>GRADING SCALE (8-4-4 SYSTEM):</strong> 
-        A (80-100) = 12pts | A- (75-79) = 11pts | B+ (70-74) = 10pts | B (65-69) = 9pts | B- (60-64) = 8pts | 
-        C+ (55-59) = 7pts | C (50-54) = 6pts | C- (45-49) = 5pts | D+ (40-44) = 4pts | D (35-39) = 3pts | D- (30-34) = 2pts | E (0-29) = 1pt
+        A (80-100)  | A- (75-79)  | B+ (70-74)  | B (65-69)  | B- (60-64)  | 
+        C+ (55-59)  | C (50-54)  | C- (45-49)  | D+ (40-44)  | D (35-39)  | D- (30-34)  | E (0-29)
     </div>
 
     <!-- GRADES TABLE -->
@@ -522,8 +522,8 @@ $total_students = count($rankings);
     <!-- OVERALL SUMMARY -->
     <div class="overall-summary">
         <div class="overall-item">
-            <div class="overall-label">MEAN GRADE POINTS</div>
-            <div class="overall-value"><?php echo number_format($mean_grade_points, 2); ?> / 8</div>
+            <div class="overall-label">MEAN SCORE</div>
+            <div class="overall-value"><?php echo number_format($mean_score, 2); ?></div>
         </div>
         <div class="overall-item">
             <div class="overall-label">OVERALL GRADE</div>
@@ -539,17 +539,7 @@ $total_students = count($rankings);
         </div>
     </div>
 
-    <!-- ASSESSMENT RUBRIC -->
-    <div class="rubric-grid">
-        <div class="rubric-item" style="background: #4caf50; color: white;">EE1 (8 pts)</div>
-        <div class="rubric-item" style="background: #4caf50; color: white;">EE2 (7 pts)</div>
-        <div class="rubric-item" style="background: #2196f3; color: white;">ME1 (6 pts)</div>
-        <div class="rubric-item" style="background: #2196f3; color: white;">ME2 (5 pts)</div>
-        <div class="rubric-item" style="background: #ff9800; color: white;">AE1 (4 pts)</div>
-        <div class="rubric-item" style="background: #ff9800; color: white;">AE2 (3 pts)</div>
-        <div class="rubric-item" style="background: #f44336; color: white;">BE1 (2 pts)</div>
-        <div class="rubric-item" style="background: #f44336; color: white;">BE2 (1 pt)</div>
-    </div>
+   
 
     <!-- COMMENTS -->
     <div class="comments-section">

@@ -67,6 +67,15 @@ function getGradeUpdatePage($curriculum_name) {
 
 /* ---------- GET STUDENTS BASED ON TEACHER CATEGORY ---------- */
 $students_by_curriculum = [];
+$my_assigned_class_students = []; // For class teacher's assigned class
+
+// First, get the curricula this teacher actually teaches
+$teacher_curricula = [];
+if (!empty($teacher_subjects)) {
+    foreach ($teacher_subjects as $curr => $subjects) {
+        $teacher_curricula[] = $curr;
+    }
+}
 
 if ($category == 'Head Teacher') {
     // Head teacher sees all students
@@ -74,7 +83,8 @@ if ($category == 'Head Teacher') {
     foreach ($curriculums as $curr) {
         $stmt = $pdo->prepare("
             SELECT s.id, s.admission_number, s.first_name, s.last_name, 
-                   cl.name as class_name, s.gender, s.status
+                   cl.name as class_name, ct.name as curriculum_name, s.gender, s.status,
+                   s.class_level_id
             FROM students s
             LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
             LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
@@ -84,26 +94,49 @@ if ($category == 'Head Teacher') {
         $stmt->execute([$curr]);
         $students_by_curriculum[$curr] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-} elseif ($category == 'Class Teacher' && $teacher['assigned_class_id']) {
-    // Class teacher sees only their assigned class
-    $stmt = $pdo->prepare("
-        SELECT s.id, s.admission_number, s.first_name, s.last_name, 
-               cl.name as class_name, ct.name as curriculum_name, s.gender, s.status
-        FROM students s
-        LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
-        LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
-        WHERE s.class_level_id = ? AND s.status = 1
-        ORDER BY s.last_name, s.first_name
-    ");
-    $stmt->execute([$teacher['assigned_class_id']]);
-    $my_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} else {
-    // Subject teacher sees all active students
-    $curriculums = ['CBE', '8-4-4', 'IGCSE'];
-    foreach ($curriculums as $curr) {
+} elseif ($category == 'Class Teacher') {
+    // Class teacher sees:
+    // 1. Their assigned class students (with full access)
+    // 2. Students from other classes in curricula they teach (subject teacher access only)
+    
+    // Get assigned class students
+    if ($teacher['assigned_class_id']) {
         $stmt = $pdo->prepare("
             SELECT s.id, s.admission_number, s.first_name, s.last_name, 
-                   cl.name as class_name, s.gender, s.status
+                   cl.name as class_name, ct.name as curriculum_name, s.gender, s.status,
+                   s.class_level_id
+            FROM students s
+            LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
+            LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
+            WHERE s.class_level_id = ? AND s.status = 1
+            ORDER BY s.last_name, s.first_name
+        ");
+        $stmt->execute([$teacher['assigned_class_id']]);
+        $my_assigned_class_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    // Get students from curricula they teach (excluding assigned class)
+    foreach ($teacher_curricula as $curr) {
+        $stmt = $pdo->prepare("
+            SELECT s.id, s.admission_number, s.first_name, s.last_name, 
+                   cl.name as class_name, ct.name as curriculum_name, s.gender, s.status,
+                   s.class_level_id
+            FROM students s
+            LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
+            LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
+            WHERE ct.name = ? AND s.status = 1
+            ORDER BY cl.level_order, s.last_name, s.first_name
+        ");
+        $stmt->execute([$curr]);
+        $students_by_curriculum[$curr] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+} else {
+    // Subject teacher sees only students from curricula they teach
+    foreach ($teacher_curricula as $curr) {
+        $stmt = $pdo->prepare("
+            SELECT s.id, s.admission_number, s.first_name, s.last_name, 
+                   cl.name as class_name, ct.name as curriculum_name, s.gender, s.status,
+                   s.class_level_id
             FROM students s
             LEFT JOIN classes_levels cl ON s.class_level_id = cl.id
             LEFT JOIN curriculum_types ct ON s.curriculum_type_id = ct.id
@@ -370,46 +403,52 @@ try {
             </div>
         <?php endif; ?>
 
-        <?php if ($category == 'Class Teacher' && isset($my_students)): ?>
-            <!-- CLASS TEACHER VIEW -->
-            <div class="card curriculum-card">
-                <h2 class="curriculum-title cbc-title">
-                    📚 My Class: <?php echo htmlspecialchars($my_students[0]['curriculum_name'] ?? ''); ?> - <?php echo htmlspecialchars($my_students[0]['class_name'] ?? ''); ?>
+        <?php if ($category == 'Class Teacher' && !empty($my_assigned_class_students)): ?>
+            <!-- MY ASSIGNED CLASS (FULL ACCESS) -->
+            <div class="card curriculum-card" style="border-left: 6px solid #4caf50;">
+                <h2 class="curriculum-title" style="background: #4caf50; color: white;">
+                    🏫 My Assigned Class: <?php echo htmlspecialchars($my_assigned_class_students[0]['curriculum_name'] ?? ''); ?> - <?php echo htmlspecialchars($my_assigned_class_students[0]['class_name'] ?? ''); ?>
+                    <span style="font-size: 14px; background: white; color: #4caf50; padding: 4px 12px; border-radius: 12px; margin-left: 10px;">Full Access</span>
                 </h2>
                 
-                <?php if (!empty($my_students)): ?>
-                    <table class="student-table">
-                        <thead>
+                <table class="student-table">
+                    <thead>
+                        <tr>
+                            <th>Admission No.</th>
+                            <th>Name</th>
+                            <th>Gender</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($my_assigned_class_students as $student): ?>
+                            <?php $grade_page = getGradeUpdatePage($student['curriculum_name']); ?>
                             <tr>
-                                <th>Admission No.</th>
-                                <th>Name</th>
-                                <th>Gender</th>
-                                <th>Actions</th>
+                                <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
+                                <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
+                                <td><?php echo htmlspecialchars($student['gender']); ?></td>
+                                <td>
+                                    <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                        Update Grades (All Subjects)
+                                    </a>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($my_students as $student): ?>
-                                <?php $grade_page = getGradeUpdatePage($student['curriculum_name']); ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($student['admission_number']); ?></td>
-                                    <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($student['gender']); ?></td>
-                                    <td>
-                                        <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
-                                            Update Grades
-                                        </a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php else: ?>
-                    <p class="no-students">No students in your class yet.</p>
-                <?php endif; ?>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
+        <?php endif; ?>
+
+        <?php if ($category != 'Head Teacher' && !empty($students_by_curriculum)): ?>
+            <!-- SUBJECT TEACHER VIEW / CLASS TEACHER FOR OTHER CLASSES -->
+            <?php if ($category == 'Class Teacher'): ?>
+                <div class="card" style="background: #fff9e6; border-left: 6px solid #ff9800;">
+                    <p style="color: #666; margin: 0;">
+                        ℹ️ <strong>Note:</strong> For students below (not in your assigned class), you can only update the subjects you teach.
+                    </p>
+                </div>
+            <?php endif; ?>
             
-        <?php else: ?>
-            <!-- SUBJECT TEACHER & HEAD TEACHER VIEW -->
             <?php
             $curriculum_colors = [
                 'CBE' => ['title' => 'cbc-title', 'color' => '#2ecc71'],
@@ -459,15 +498,17 @@ try {
                                                     <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
                                                     <td><?php echo htmlspecialchars($student['gender']); ?></td>
                                                     <td>
-                                                        <?php if ($category == 'Head Teacher'): ?>
-                                                            <a href="teacher/view_student.php?student_id=<?php echo $student['id']; ?>" class="grade-button">
-                                                                View All Grades
-                                                            </a>
-                                                        <?php else: ?>
-                                                            <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
-                                                                Update Grades
-                                                            </a>
-                                                        <?php endif; ?>
+                                                        <a href="<?php echo $grade_page; ?>?student_id=<?php echo $student['id']; ?>" class="grade-button">
+                                                            <?php 
+                                                            if ($category == 'Class Teacher') {
+                                                                // Check if this is their assigned class
+                                                                $is_my_class = ($student['class_level_id'] == $teacher['assigned_class_id']);
+                                                                echo $is_my_class ? 'Update Grades (All Subjects)' : 'Update Grades (My Subjects)';
+                                                            } else {
+                                                                echo 'Update Grades';
+                                                            }
+                                                            ?>
+                                                        </a>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -482,8 +523,6 @@ try {
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
-    </div>
-</div>
 
 <script>
 function toggleSection(header) {

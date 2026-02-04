@@ -484,10 +484,18 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                                                 
                                                 <div class="grade-input-grid">
                                                     <?php
+                                                    // Determine which subjects this teacher can grade
                                                     $subjects_to_grade = $student_subjects;
+                                                    $is_my_assigned_class = ($teacher['category'] == 'Class Teacher' && $student['class_level_id'] == $teacher['assigned_class_id']);
+                                                    
                                                     if ($teacher['category'] == 'Subject Teacher' && !empty($teacher_subjects)) {
+                                                        // Subject teachers only grade their subjects
+                                                        $subjects_to_grade = array_intersect($student_subjects, $teacher_subjects);
+                                                    } elseif ($teacher['category'] == 'Class Teacher' && !$is_my_assigned_class && !empty($teacher_subjects)) {
+                                                        // Class teachers for OTHER classes only grade their subjects
                                                         $subjects_to_grade = array_intersect($student_subjects, $teacher_subjects);
                                                     }
+                                                    // If it's class teacher's assigned class, they see ALL subjects (no filter)
                                                     
                                                     foreach ($subjects_to_grade as $subject):
                                                         $grade_data = $grades_organized[$year][$term][$assessment][$subject] ?? [];
@@ -533,7 +541,7 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                                                 </div>
                                                 
                                                 <?php if (!$is_locked): ?>
-                                                    <?php if ($teacher['category'] == 'Class Teacher'): ?>
+                                                    <?php if ($is_my_assigned_class): ?>
                                                         <div class="class-teacher-comment-box">
                                                             <label>📝 Class Teacher's Overall Comment:</label>
                                                             <textarea name="class_teacher_comment" 
@@ -549,7 +557,7 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                                                     <div class="lock-checkbox">
                                                         <input type="checkbox" name="lock_submission" value="1" id="lock_<?php echo $year . '_' . $term . '_' . $assessment; ?>">
                                                         <label for="lock_<?php echo $year . '_' . $term . '_' . $assessment; ?>">
-                                                            <?php if ($teacher['category'] == 'Class Teacher'): ?>
+                                                            <?php if ($is_my_assigned_class): ?>
                                                                 🔒 Lock and Submit to Head Teacher for Review
                                                             <?php else: ?>
                                                                 🔒 Lock these grades after submission
