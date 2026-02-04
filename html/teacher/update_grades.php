@@ -11,7 +11,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Teacher') {
 $student_id = (int)($_GET['student_id'] ?? 0);
 
 /* ---------- GET TEACHER INFO ---------- */
-$teacher_stmt = $pdo->prepare("SELECT id, category FROM teachers WHERE user_id = ?");
+$teacher_stmt = $pdo->prepare("SELECT id, category, assigned_class_id FROM teachers WHERE user_id = ?");
 $teacher_stmt->execute([$_SESSION['user_id']]);
 $teacher = $teacher_stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -28,7 +28,7 @@ $teacher_subjects = $teacher_subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
 $student_stmt = $pdo->prepare("
     SELECT 
         s.id, s.admission_number, s.first_name, s.last_name, s.year_of_enrollment,
-        cl.name as class_name, ct.name as curriculum_name
+        s.class_level_id, cl.name as class_name, ct.name as curriculum_name
     FROM students s
     JOIN classes_levels cl ON s.class_level_id = cl.id
     JOIN curriculum_types ct ON cl.curriculum_type_id = ct.id

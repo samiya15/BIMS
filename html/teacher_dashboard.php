@@ -20,6 +20,28 @@ $teacher = $teacher_stmt->fetch(PDO::FETCH_ASSOC);
 $teacher_name = ($teacher['first_name'] ?? 'Teacher') . ' ' . ($teacher['last_name'] ?? '');
 $category = $teacher['category'] ?? 'Subject Teacher';
 
+/* ---------- GET TEACHER'S SUBJECTS FIRST ---------- */
+$teacher_subjects = [];
+try {
+    $subjects_stmt = $pdo->prepare("
+        SELECT ts.curriculum_type_id, ct.name as curriculum_name, ts.subject_name
+        FROM teacher_subjects ts
+        JOIN curriculum_types ct ON ts.curriculum_type_id = ct.id
+        WHERE ts.teacher_id = ?
+        ORDER BY ct.id, ts.subject_name
+    ");
+    $subjects_stmt->execute([$teacher['id']]);
+    $teacher_subjects_raw = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Organize by curriculum
+    foreach ($teacher_subjects_raw as $row) {
+        $teacher_subjects[$row['curriculum_name']][] = $row['subject_name'];
+    }
+} catch (PDOException $e) {
+    // Table doesn't exist yet
+    $teacher_subjects = [];
+}
+
 /* ---------- FOR HEAD TEACHER: GET PENDING REVIEWS ---------- */
 $pending_reviews = [];
 if ($category == 'Head Teacher') {
@@ -146,27 +168,6 @@ if ($category == 'Head Teacher') {
         $stmt->execute([$curr]);
         $students_by_curriculum[$curr] = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-}
-
-/* ---------- GET TEACHER'S SUBJECTS ---------- */
-$teacher_subjects = [];
-try {
-    $subjects_stmt = $pdo->prepare("
-        SELECT ts.curriculum_type_id, ct.name as curriculum_name, ts.subject_name
-        FROM teacher_subjects ts
-        JOIN curriculum_types ct ON ts.curriculum_type_id = ct.id
-        WHERE ts.teacher_id = ?
-        ORDER BY ct.id, ts.subject_name
-    ");
-    $subjects_stmt->execute([$teacher['id']]);
-    $teacher_subjects_raw = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Organize by curriculum
-    foreach ($teacher_subjects_raw as $row) {
-        $teacher_subjects[$row['curriculum_name']][] = $row['subject_name'];
-    }
-} catch (PDOException $e) {
-    $teacher_subjects = [];
 }
 ?>
 
@@ -341,6 +342,12 @@ try {
                     <?php foreach ($teacher_subjects as $curr => $subjects): ?>
                         <p><strong><?php echo htmlspecialchars($curr); ?>:</strong> <?php echo htmlspecialchars(implode(', ', $subjects)); ?></p>
                     <?php endforeach; ?>
+                </div>
+                
+                <!-- DEBUG INFO -->
+                <div style="background: #f0f0f0; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 12px;">
+                    <strong>Debug:</strong> Teacher Curricula = <?php echo htmlspecialchars(implode(', ', $teacher_curricula)); ?><br>
+                    <strong>Students by Curriculum:</strong> <?php echo htmlspecialchars(implode(', ', array_keys($students_by_curriculum))); ?>
                 </div>
             <?php endif; ?>
         </div>

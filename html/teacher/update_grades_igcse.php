@@ -11,7 +11,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Teacher') {
 $student_id = (int)($_GET['student_id'] ?? 0);
 
 /* ---------- GET TEACHER INFO ---------- */
-$teacher_stmt = $pdo->prepare("SELECT id, category FROM teachers WHERE user_id = ?");
+$teacher_stmt = $pdo->prepare("SELECT id, category, assigned_class_id FROM teachers WHERE user_id = ?");
 $teacher_stmt->execute([$_SESSION['user_id']]);
 $teacher = $teacher_stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -28,7 +28,7 @@ $teacher_subjects = $teacher_subjects_stmt->fetchAll(PDO::FETCH_COLUMN);
 $student_stmt = $pdo->prepare("
     SELECT 
         s.id, s.admission_number, s.first_name, s.last_name, s.year_of_enrollment,
-        cl.name as class_name, ct.name as curriculum_name
+        s.class_level_id, cl.name as class_name, ct.name as curriculum_name
     FROM students s
     JOIN classes_levels cl ON s.class_level_id = cl.id
     JOIN curriculum_types ct ON cl.curriculum_type_id = ct.id
@@ -129,14 +129,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     }
                     
                     $grade = '';
-                    if ($final_score >= 90) $grade = 'A*';
-                    elseif ($final_score >= 80) $grade = 'A';
-                    elseif ($final_score >= 70) $grade = 'B';
-                    elseif ($final_score >= 60) $grade = 'C';
-                    elseif ($final_score >= 50) $grade = 'D';
-                    elseif ($final_score >= 40) $grade = 'E';
-                    elseif ($final_score >= 30) $grade = 'F';
-                    elseif ($final_score >= 20) $grade = 'G';
+                    if ($final_score >= 90) $grade = '9';
+                    elseif ($final_score >= 80) $grade = '8';
+                    elseif ($final_score >= 70) $grade = '7';
+                    elseif ($final_score >= 60) $grade = '6';
+                    elseif ($final_score >= 50) $grade = '5';
+                    elseif ($final_score >= 40) $grade = '4';
+                    elseif ($final_score >= 30) $grade = '3';
+                    elseif ($final_score >= 25) $grade = '2';
+                    elseif ($final_score >= 20) $grade = '1';
                     else $grade = 'U';
                     
                     $grade_points = null;
@@ -432,7 +433,7 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                 <div class="alert-error">⚠️ No subjects assigned to this student.</div>
             <?php else: ?>
                 <div style="margin-bottom: 15px;">
-                    <a href="view_report_card.php?student_id=<?php echo $student_id; ?>" class="button" style="background: var(--yellow); color: var(--black);">
+                    <a href="view_report_card_igcse.php?student_id=<?php echo $student_id; ?>" class="button" style="background: var(--yellow); color: var(--black);">
                         📄 View Report Card
                     </a>
                 </div>
@@ -464,7 +465,7 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                                                 <?php if ($is_locked): ?>
                                                     <span class="locked-badge">🔒 Locked</span>
                                                 <?php endif; ?>
-                                                <a href="view_report_card.php?student_id=<?php echo $student_id; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
+                                                <a href="view_report_card_igcse.php?student_id=<?php echo $student_id; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
                                                    class="view-report-btn" 
                                                    onclick="event.stopPropagation();">
                                                     📄 View Report Card
