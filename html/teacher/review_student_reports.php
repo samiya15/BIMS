@@ -14,82 +14,73 @@ $teacher_stmt->execute([$_SESSION['user_id']]);
 $teacher = $teacher_stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$teacher || $teacher['category'] !== 'Head Teacher') {
-    die("This page is only accessible to Head Teachers.");
+    die("Access denied. This page is for Head Teachers only.");
 }
 
-/* ---------- HANDLE REPORT RELEASE ---------- */
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['action'] === 'release_to_students') {
-    $student_id = (int)$_POST['student_id'];
-    $year = (int)$_POST['year'];
-    $term = $_POST['term'];
-    $assessment = $_POST['assessment'];
-    $principal_comment = trim($_POST['principal_comment']);
+/* ---------- HANDLE ACTIONS ---------- */
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $action = $_POST['action'] ?? '';
+    $submission_id = (int)($_POST['submission_id'] ?? 0);
     
-    try {
-        // Check if submission exists
-        $check = $pdo->prepare("
-            SELECT id FROM grade_submissions 
-            WHERE student_id = ? AND academic_year = ? AND term = ? AND assessment_type = ?
-        ");
-        $check->execute([$student_id, $year, $term, $assessment]);
-        $submission = $check->fetch();
+    if ($action === 'release' && $submission_id > 0) {
+        $principal_comment = trim($_POST['principal_comment'] ?? '');
         
-        if ($submission) {
-            // Update existing submission
+        try {
+            $pdo->beginTransaction();
+            
+            // Update submission status
             $update = $pdo->prepare("
                 UPDATE grade_submissions 
-                SET principal_comment = ?, 
-                    status = 'RELEASED',
+                SET status = 'RELEASED',
+                    principal_comment = ?,
                     released_to_students_at = NOW()
                 WHERE id = ?
             ");
-            $update->execute([$principal_comment, $submission['id']]);
+            $update->execute([$principal_comment, $submission_id]);
             
-            $success = "Report successfully released to student and parents!";
-        } else {
-            $error = "Grade submission not found.";
+            $pdo->commit();
+            header("Location: review_student_reports.php?success=released");
+            exit;
+            
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            $error = "Error releasing report: " . $e->getMessage();
         }
-    } catch (PDOException $e) {
-        $error = "Error: " . $e->getMessage();
     }
 }
 
-/* ---------- GET ALL PENDING REPORTS ---------- */
-$pending_reports_stmt = $pdo->prepare("
+/* ---------- GET PENDING SUBMISSIONS ---------- */
+$pending_stmt = $pdo->prepare("
     SELECT 
-        gs.id,
+        gs.id as submission_id,
         gs.student_id,
         gs.academic_year,
         gs.term,
         gs.assessment_type,
         gs.class_teacher_comment,
-        gs.principal_comment,
-        gs.status,
         gs.submitted_to_principal_at,
         s.admission_number,
         s.first_name,
         s.last_name,
         cl.name as class_name,
         ct.name as curriculum_name,
-        COUNT(DISTINCT g.subject_name) as subjects_count
+        t.first_name as teacher_first_name,
+        t.last_name as teacher_last_name
     FROM grade_submissions gs
     JOIN students s ON gs.student_id = s.id
+    JOIN teachers t ON gs.teacher_id = t.id
     JOIN classes_levels cl ON s.class_level_id = cl.id
     JOIN curriculum_types ct ON cl.curriculum_type_id = ct.id
-    LEFT JOIN grades g ON gs.student_id = g.student_id 
-        AND gs.academic_year = g.academic_year 
-        AND gs.term = g.term 
-        AND gs.assessment_type = g.assessment_type
     WHERE gs.status = 'AWAITING_PRINCIPAL'
-    GROUP BY gs.id
-    ORDER BY gs.submitted_to_principal_at DESC, cl.name, s.last_name, s.first_name
+    ORDER BY gs.submitted_to_principal_at DESC
 ");
-$pending_reports_stmt->execute();
-$pending_reports = $pending_reports_stmt->fetchAll(PDO::FETCH_ASSOC);
+$pending_stmt->execute();
+$pending_submissions = $pending_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* ---------- GET RECENTLY RELEASED REPORTS ---------- */
-$released_reports_stmt = $pdo->prepare("
+/* ---------- GET RELEASED SUBMISSIONS (Recent 20) ---------- */
+$released_stmt = $pdo->prepare("
     SELECT 
+        gs.id as submission_id,
         gs.student_id,
         gs.academic_year,
         gs.term,
@@ -106,10 +97,10 @@ $released_reports_stmt = $pdo->prepare("
     JOIN curriculum_types ct ON cl.curriculum_type_id = ct.id
     WHERE gs.status = 'RELEASED'
     ORDER BY gs.released_to_students_at DESC
-    LIMIT 50
+    LIMIT 20
 ");
-$released_reports_stmt->execute();
-$released_reports = $released_reports_stmt->fetchAll(PDO::FETCH_ASSOC);
+$released_stmt->execute();
+$released_submissions = $released_stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -121,189 +112,234 @@ $released_reports = $released_reports_stmt->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="../assets/css/admin.css">
     <link rel="stylesheet" href="../assets/css/teacher.css">
     <style>
-        .header-banner {
-            background: linear-gradient(135deg, var(--navy) 0%, #1a3a52 100%);
-            color: white;
+        .submissions-grid {
+            display: grid;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .submission-card {
+            background: white;
             padding: 20px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            border-left: 6px solid var(--yellow);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        .header-banner h3 {
-            color: var(--yellow);
+        .submission-card.pending {
+            border-left-color: #ff9800;
+            background: #fff9e6;
         }
-        .pending-count {
-            background: var(--yellow);
-            color: var(--black);
-            padding: 5px 15px;
+        .submission-card.released {
+            border-left-color: #4caf50;
+            background: #f1f8f4;
+        }
+        .submission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+        .student-info h3 {
+            color: var(--navy);
+            margin-bottom: 5px;
+        }
+        .student-meta {
+            color: #666;
+            font-size: 13px;
+            margin: 3px 0;
+        }
+        .status-badge {
+            padding: 6px 12px;
             border-radius: 20px;
+            font-size: 12px;
             font-weight: 600;
+        }
+        .status-pending {
+            background: #ff9800;
+            color: white;
+        }
+        .status-released {
+            background: #4caf50;
+            color: white;
+        }
+        .comment-box {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border-left: 4px solid #2196f3;
+        }
+        .comment-box h4 {
+            color: var(--navy);
+            margin-bottom: 10px;
             font-size: 14px;
         }
-        .reports-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background: white;
+        .comment-text {
+            color: #333;
+            line-height: 1.6;
+            font-size: 14px;
         }
-        .reports-table th {
-            background: var(--navy);
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 13px;
-        }
-        .reports-table td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-            font-size: 13px;
-        }
-        .reports-table tr:hover {
-            background: #f5f5f5;
-        }
-        .btn-review {
-            background: var(--yellow);
-            color: var(--black);
-            padding: 6px 12px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 13px;
-            display: inline-block;
-            transition: all 0.3s;
-            border: none;
-            cursor: pointer;
-        }
-        .btn-review:hover {
-            background: #ddb300;
-            transform: translateY(-1px);
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
         }
         .btn-view {
-            background: #2196f3;
+            background: var(--navy);
             color: white;
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 10px 20px;
+            border-radius: 6px;
             text-decoration: none;
-            font-size: 13px;
+            font-weight: 600;
+            font-size: 14px;
             display: inline-block;
             transition: all 0.3s;
         }
         .btn-view:hover {
-            background: #1976d2;
+            background: var(--black);
+            transform: translateY(-2px);
+        }
+        .btn-review {
+            background: #ff9800;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-review:hover {
+            background: #f57c00;
+            transform: translateY(-2px);
         }
         .modal {
             display: none;
             position: fixed;
-            z-index: 1000;
-            left: 0;
             top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
             overflow-y: auto;
         }
         .modal-content {
             background: white;
+            max-width: 800px;
             margin: 50px auto;
             padding: 30px;
-            width: 90%;
-            max-width: 1000px;
-            border-radius: 8px;
-            max-height: 85vh;
-            overflow-y: auto;
+            border-radius: 10px;
+            position: relative;
         }
-        .modal-header {
-            border-bottom: 2px solid var(--navy);
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-        .modal-header h3 {
-            color: var(--navy);
-            margin-bottom: 10px;
-        }
-        .close {
-            float: right;
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
             font-size: 28px;
             font-weight: bold;
-            cursor: pointer;
             color: #999;
+            cursor: pointer;
+            border: none;
+            background: none;
         }
-        .close:hover {
-            color: #000;
+        .modal-close:hover {
+            color: #333;
         }
-        .report-preview {
-            background: #f9f9f9;
+        .principal-comment-form {
+            margin-top: 20px;
             padding: 20px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border-left: 4px solid var(--navy);
+            background: #f9f9f9;
+            border-radius: 8px;
         }
-        .grades-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
-            margin: 15px 0;
-        }
-        .grade-item {
-            background: white;
-            padding: 10px;
-            border-radius: 4px;
-            border-left: 3px solid var(--yellow);
-        }
-        .grade-item strong {
-            color: var(--navy);
-        }
-        .comment-display {
-            background: #fff9e6;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 15px 0;
-            border-left: 4px solid var(--yellow);
-        }
-        .comment-display h4 {
-            color: var(--navy);
-            margin-bottom: 10px;
-        }
-        .comment-box {
-            margin: 20px 0;
-        }
-        .comment-box label {
+        .principal-comment-form label {
             display: block;
             font-weight: 600;
             color: var(--navy);
             margin-bottom: 10px;
         }
-        .comment-box textarea {
+        .principal-comment-form textarea {
             width: 100%;
             padding: 12px;
             border: 2px solid #ddd;
             border-radius: 6px;
-            min-height: 100px;
-            font-family: Arial, sans-serif;
             font-size: 14px;
+            resize: vertical;
+            min-height: 100px;
         }
-        .section-tabs {
+        .principal-comment-form button {
+            background: #4caf50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+        .principal-comment-form button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .curriculum-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .badge-cbc {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .badge-844 {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        .badge-igcse {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .tabs {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
         }
-        .tab-btn {
-            padding: 10px 20px;
-            background: #f0f0f0;
+        .tab {
+            padding: 12px 24px;
+            background: none;
             border: none;
-            border-radius: 6px;
+            border-bottom: 3px solid transparent;
             cursor: pointer;
             font-weight: 600;
+            color: #666;
             transition: all 0.3s;
         }
-        .tab-btn.active {
-            background: var(--navy);
-            color: white;
+        .tab.active {
+            color: var(--navy);
+            border-bottom-color: var(--yellow);
+        }
+        .tab:hover {
+            color: var(--navy);
         }
         .tab-content {
             display: none;
         }
         .tab-content.active {
             display: block;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -312,209 +348,194 @@ $released_reports = $released_reports_stmt->fetchAll(PDO::FETCH_ASSOC);
 <div class="sidebar">
     <h2>BIMS Head Teacher</h2>
     <a href="../teacher_dashboard.php">Dashboard</a>
-    <a href="my_profile.php">My Profile</a>
     <a href="review_student_reports.php" class="active">Review Reports</a>
+    <a href="my_profile.php">My Profile</a>
     <a href="../logout.php">Logout</a>
 </div>
 
 <div class="main-content">
     <div class="container">
         <div class="card">
-            <h2>📋 Review Student Report Cards</h2>
+            <h1>📋 Review Student Reports</h1>
+            <p>Review and release student report cards submitted by class teachers.</p>
 
-            <div class="header-banner">
-                <h3>Pending Reviews</h3>
-                <p>Review class teacher submissions and release reports to students/parents</p>
-                <p style="margin-top: 10px;">
-                    <span class="pending-count"><?php echo count($pending_reports); ?> reports awaiting your review</span>
-                </p>
-            </div>
-
-            <?php if (isset($success)): ?>
-                <div class="alert-success">✅ <?php echo htmlspecialchars($success); ?></div>
+            <?php if (isset($_GET['success'])): ?>
+                <div class="alert-success">✅ Report card successfully released to student/parent!</div>
             <?php endif; ?>
 
             <?php if (isset($error)): ?>
                 <div class="alert-error">❌ <?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
 
-            <!-- Tabs -->
-            <div class="section-tabs">
-                <button class="tab-btn active" onclick="switchTab('pending')">Pending Reviews (<?php echo count($pending_reports); ?>)</button>
-                <button class="tab-btn" onclick="switchTab('released')">Recently Released (<?php echo count($released_reports); ?>)</button>
+            <!-- TABS -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('pending')">
+                    ⏳ Pending Reviews (<?php echo count($pending_submissions); ?>)
+                </button>
+                <button class="tab" onclick="switchTab('released')">
+                    ✅ Recently Released (<?php echo count($released_submissions); ?>)
+                </button>
             </div>
 
-            <!-- Pending Reports Tab -->
+            <!-- PENDING SUBMISSIONS TAB -->
             <div id="pending-tab" class="tab-content active">
-                <?php if (empty($pending_reports)): ?>
-                    <div style="text-align: center; padding: 40px; color: #666;">
-                        <p style="font-size: 18px;">✅ No pending reports!</p>
-                        <p>All submitted reports have been reviewed.</p>
+                <?php if (empty($pending_submissions)): ?>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <h3>No Pending Reviews</h3>
+                        <p>All submitted reports have been reviewed. Check back later!</p>
                     </div>
                 <?php else: ?>
-                    <table class="reports-table">
-                        <thead>
-                            <tr>
-                                <th>Student</th>
-                                <th>Admission No</th>
-                                <th>Class</th>
-                                <th>Year</th>
-                                <th>Term</th>
-                                <th>Assessment</th>
-                                <th>Subjects</th>
-                                <th>Submitted</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($pending_reports as $report): ?>
-                                <tr>
-                                    <td><strong><?php echo htmlspecialchars($report['first_name'] . ' ' . $report['last_name']); ?></strong></td>
-                                    <td><?php echo htmlspecialchars($report['admission_number']); ?></td>
-                                    <td><?php echo htmlspecialchars($report['curriculum_name'] . ' - ' . $report['class_name']); ?></td>
-                                    <td><?php echo $report['academic_year']; ?></td>
-                                    <td><?php echo $report['term']; ?></td>
-                                    <td><?php echo $report['assessment_type']; ?></td>
-                                    <td><?php echo $report['subjects_count']; ?></td>
-                                    <td><?php echo date('M d, Y', strtotime($report['submitted_to_principal_at'])); ?></td>
-                                    <td>
-                                        <button class="btn-review" onclick="openReviewModal(
-                                            <?php echo $report['student_id']; ?>,
-                                            <?php echo $report['academic_year']; ?>,
-                                            '<?php echo $report['term']; ?>',
-                                            '<?php echo $report['assessment_type']; ?>',
-                                            '<?php echo htmlspecialchars($report['first_name'] . ' ' . $report['last_name'], ENT_QUOTES); ?>',
-                                            '<?php echo htmlspecialchars($report['curriculum_name'], ENT_QUOTES); ?>',
-                                            '<?php echo htmlspecialchars($report['class_teacher_comment'], ENT_QUOTES); ?>',
-                                            '<?php echo htmlspecialchars($report['principal_comment'] ?? '', ENT_QUOTES); ?>'
-                                        )">Review & Release</button>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                    <div class="submissions-grid">
+                        <?php foreach ($pending_submissions as $sub): ?>
+                            <div class="submission-card pending">
+                                <div class="submission-header">
+                                    <div class="student-info">
+                                        <h3>
+                                            <?php echo htmlspecialchars($sub['first_name'] . ' ' . $sub['last_name']); ?>
+                                            <span class="curriculum-badge badge-<?php echo strtolower(str_replace(['-', ' '], '', $sub['curriculum_name'])); ?>">
+                                                <?php echo htmlspecialchars($sub['curriculum_name']); ?>
+                                            </span>
+                                        </h3>
+                                        <div class="student-meta">📝 Adm: <?php echo htmlspecialchars($sub['admission_number']); ?></div>
+                                        <div class="student-meta">🎓 Class: <?php echo htmlspecialchars($sub['class_name']); ?></div>
+                                        <div class="student-meta">
+                                            📅 <?php echo htmlspecialchars($sub['academic_year'] . ' - ' . $sub['term'] . ' - ' . $sub['assessment_type']); ?>
+                                        </div>
+                                        <div class="student-meta">
+                                            👨‍🏫 Submitted by: <?php echo htmlspecialchars($sub['teacher_first_name'] . ' ' . $sub['teacher_last_name']); ?>
+                                        </div>
+                                        <div class="student-meta">
+                                            ⏰ <?php echo date('M d, Y H:i', strtotime($sub['submitted_to_principal_at'])); ?>
+                                        </div>
+                                    </div>
+                                    <span class="status-badge status-pending">Pending Review</span>
+                                </div>
+
+                                <?php if ($sub['class_teacher_comment']): ?>
+                                    <div class="comment-box">
+                                        <h4>📝 Class Teacher's Comment:</h4>
+                                        <div class="comment-text"><?php echo nl2br(htmlspecialchars($sub['class_teacher_comment'])); ?></div>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="action-buttons">
+                                    <a href="view_report_card.php?student_id=<?php echo $sub['student_id']; ?>&year=<?php echo $sub['academic_year']; ?>&term=<?php echo urlencode($sub['term']); ?>&assessment=<?php echo urlencode($sub['assessment_type']); ?>" 
+                                       target="_blank"
+                                       class="btn-view">
+                                        📄 View Report Card
+                                    </a>
+                                    <button onclick="openReviewModal(<?php echo $sub['submission_id']; ?>, '<?php echo htmlspecialchars($sub['first_name'] . ' ' . $sub['last_name']); ?>', '<?php echo $sub['academic_year']; ?>', '<?php echo $sub['term']; ?>', '<?php echo $sub['assessment_type']; ?>')" 
+                                            class="btn-review">
+                                        ✅ Review & Release
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </div>
 
-            <!-- Released Reports Tab -->
+            <!-- RELEASED SUBMISSIONS TAB -->
             <div id="released-tab" class="tab-content">
-                <?php if (empty($released_reports)): ?>
-                    <div style="text-align: center; padding: 40px; color: #666;">
-                        <p>No reports released yet.</p>
+                <?php if (empty($released_submissions)): ?>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>No Released Reports Yet</h3>
+                        <p>Released reports will appear here.</p>
                     </div>
                 <?php else: ?>
-                    <table class="reports-table">
-                        <thead>
-                            <tr>
-                                <th>Student</th>
-                                <th>Admission No</th>
-                                <th>Class</th>
-                                <th>Year</th>
-                                <th>Term</th>
-                                <th>Assessment</th>
-                                <th>Released</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($released_reports as $report): ?>
-                                <tr>
-                                    <td><strong><?php echo htmlspecialchars($report['first_name'] . ' ' . $report['last_name']); ?></strong></td>
-                                    <td><?php echo htmlspecialchars($report['admission_number']); ?></td>
-                                    <td><?php echo htmlspecialchars($report['curriculum_name'] . ' - ' . $report['class_name']); ?></td>
-                                    <td><?php echo $report['academic_year']; ?></td>
-                                    <td><?php echo $report['term']; ?></td>
-                                    <td><?php echo $report['assessment_type']; ?></td>
-                                    <td><?php echo date('M d, Y', strtotime($report['released_to_students_at'])); ?></td>
-                                    <td>
-                                        <a href="<?php 
-                                            $curriculum = $report['curriculum_name'];
-                                            if ($curriculum === 'IGCSE') {
-                                                echo 'view_report_card_igcse.php';
-                                            } elseif ($curriculum === '8-4-4') {
-                                                echo 'view_report_card_844.php';
-                                            } else {
-                                                echo 'view_report_card.php';
-                                            }
-                                        ?>?student_id=<?php echo $report['student_id']; ?>&year=<?php echo $report['academic_year']; ?>&term=<?php echo urlencode($report['term']); ?>&assessment=<?php echo urlencode($report['assessment_type']); ?>" 
-                                           class="btn-view" target="_blank">
-                                            View Report
-                                        </a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                    <div class="submissions-grid">
+                        <?php foreach ($released_submissions as $sub): ?>
+                            <div class="submission-card released">
+                                <div class="submission-header">
+                                    <div class="student-info">
+                                        <h3>
+                                            <?php echo htmlspecialchars($sub['first_name'] . ' ' . $sub['last_name']); ?>
+                                            <span class="curriculum-badge badge-<?php echo strtolower(str_replace(['-', ' '], '', $sub['curriculum_name'])); ?>">
+                                                <?php echo htmlspecialchars($sub['curriculum_name']); ?>
+                                            </span>
+                                        </h3>
+                                        <div class="student-meta">📝 Adm: <?php echo htmlspecialchars($sub['admission_number']); ?></div>
+                                        <div class="student-meta">🎓 Class: <?php echo htmlspecialchars($sub['class_name']); ?></div>
+                                        <div class="student-meta">
+                                            📅 <?php echo htmlspecialchars($sub['academic_year'] . ' - ' . $sub['term'] . ' - ' . $sub['assessment_type']); ?>
+                                        </div>
+                                        <div class="student-meta">
+                                            ✅ Released: <?php echo date('M d, Y H:i', strtotime($sub['released_to_students_at'])); ?>
+                                        </div>
+                                    </div>
+                                    <span class="status-badge status-released">Released</span>
+                                </div>
+
+                                <div class="action-buttons">
+                                    <a href="view_report_card.php?student_id=<?php echo $sub['student_id']; ?>&year=<?php echo $sub['academic_year']; ?>&term=<?php echo urlencode($sub['term']); ?>&assessment=<?php echo urlencode($sub['assessment_type']); ?>" 
+                                       target="_blank"
+                                       class="btn-view">
+                                        📄 View Report Card
+                                    </a>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </div>
-
-            <a href="../teacher_dashboard.php" class="button button-yellow" style="margin-top: 20px;">← Back to Dashboard</a>
         </div>
     </div>
 </div>
 
-<!-- Review Modal -->
+<!-- REVIEW MODAL -->
 <div id="reviewModal" class="modal">
     <div class="modal-content">
-        <div class="modal-header">
-            <span class="close" onclick="closeReviewModal()">&times;</span>
-            <h3 id="modalTitle">Review Report Card</h3>
-            <p id="modalSubtitle" style="color: #666; margin-top: 5px;"></p>
+        <button class="modal-close" onclick="closeReviewModal()">&times;</button>
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📋 Review & Release Report</h2>
+        
+        <div id="modalStudentInfo" style="background: #f9f9f9; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+            <!-- Student info will be populated by JavaScript -->
         </div>
 
-        <div class="report-preview" id="reportPreview">
-            <p>Loading report data...</p>
-        </div>
-
-        <div class="comment-display" id="classTeacherComment">
-            <h4>📝 Class Teacher's Comment:</h4>
-            <p id="ctCommentText"></p>
-        </div>
-
-        <form method="POST" id="releaseForm">
-            <input type="hidden" name="action" value="release_to_students">
-            <input type="hidden" name="student_id" id="modal_student_id">
-            <input type="hidden" name="year" id="modal_year">
-            <input type="hidden" name="term" id="modal_term">
-            <input type="hidden" name="assessment" id="modal_assessment">
-
-            <div class="comment-box">
-                <label>Principal's Comment:</label>
-                <textarea name="principal_comment" id="modal_principal_comment" required placeholder="Enter your overall assessment and recommendations for this student..."></textarea>
-                <small style="color: #666;">This comment will appear on the student's report card.</small>
+        <form method="POST" onsubmit="return confirmRelease()">
+            <input type="hidden" name="action" value="release">
+            <input type="hidden" name="submission_id" id="modal_submission_id">
+            
+            <div class="principal-comment-form">
+                <label>📝 Principal's Comment (Required):</label>
+                <textarea name="principal_comment" 
+                          placeholder="Enter your overall comments on this student's performance and progress..."
+                          required></textarea>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    This comment will appear on the final report card visible to students and parents.
+                </small>
             </div>
 
-            <button type="submit" class="button" style="width: 100%; background: #4caf50; color: white;">
-                ✅ Release Report to Student & Parents
+            <button type="submit" style="width: 100%;">
+                ✅ Approve and Release to Student/Parent
             </button>
         </form>
     </div>
 </div>
 
 <script>
-function switchTab(tab) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+function switchTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
     
-    // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.getElementById(tab + '-tab').classList.add('active');
+    // Show selected tab
+    document.getElementById(tabName + '-tab').classList.add('active');
+    event.target.classList.add('active');
 }
 
-function openReviewModal(studentId, year, term, assessment, studentName, curriculum, ctComment, principalComment) {
-    document.getElementById('modalTitle').textContent = `Review: ${studentName}`;
-    document.getElementById('modalSubtitle').textContent = `${curriculum} - ${term} ${assessment} ${year}`;
-    document.getElementById('modal_student_id').value = studentId;
-    document.getElementById('modal_year').value = year;
-    document.getElementById('modal_term').value = term;
-    document.getElementById('modal_assessment').value = assessment;
-    document.getElementById('ctCommentText').textContent = ctComment || 'No comment provided';
-    document.getElementById('modal_principal_comment').value = principalComment || '';
-    
-    // Fetch and display grades
-    fetchGradesForReview(studentId, year, term, assessment);
-    
+function openReviewModal(submissionId, studentName, year, term, assessment) {
+    document.getElementById('modal_submission_id').value = submissionId;
+    document.getElementById('modalStudentInfo').innerHTML = `
+        <h3 style="color: var(--navy); margin-bottom: 10px;">${studentName}</h3>
+        <p style="color: #666; margin: 5px 0;">📅 ${year} - ${term} - ${assessment}</p>
+    `;
     document.getElementById('reviewModal').style.display = 'block';
 }
 
@@ -522,42 +543,14 @@ function closeReviewModal() {
     document.getElementById('reviewModal').style.display = 'none';
 }
 
-function fetchGradesForReview(studentId, year, term, assessment) {
-    const previewDiv = document.getElementById('reportPreview');
-    previewDiv.innerHTML = '<p>Loading grades...</p>';
-    
-    fetch(`get_student_grades.php?student_id=${studentId}&year=${year}&term=${encodeURIComponent(term)}&assessment=${encodeURIComponent(assessment)}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.grades.length > 0) {
-                let html = '<h4 style="color: var(--navy); margin-bottom: 15px;">📊 Student Grades:</h4>';
-                html += '<div class="grades-grid">';
-                data.grades.forEach(g => {
-                    html += `<div class="grade-item">
-                        <div><strong>${g.subject_name}</strong></div>
-                        <div style="font-size: 18px; color: var(--navy); margin: 5px 0;"><strong>${g.grade}</strong></div>
-                        <div style="font-size: 12px; color: #666;">${g.grade_points} points</div>
-                    </div>`;
-                });
-                html += '</div>';
-                html += `<div style="margin-top: 20px; padding: 15px; background: var(--yellow); border-radius: 6px;">
-                    <strong>Total Points:</strong> ${data.total_points} | 
-                    <strong>Mean Points:</strong> ${data.mean_points}
-                </div>`;
-                previewDiv.innerHTML = html;
-            } else {
-                previewDiv.innerHTML = '<p style="color: #f44336;">No grades found for this assessment.</p>';
-            }
-        })
-        .catch(error => {
-            previewDiv.innerHTML = '<p style="color: #f44336;">Error loading grades.</p>';
-        });
+function confirmRelease() {
+    return confirm('⚠️ Are you sure you want to RELEASE this report card?\n\nOnce released:\n• Students and parents can view it immediately\n• You cannot edit the principal comment\n\nProceed with release?');
 }
 
 // Close modal when clicking outside
 window.onclick = function(event) {
     const modal = document.getElementById('reviewModal');
-    if (event.target == modal) {
+    if (event.target === modal) {
         closeReviewModal();
     }
 }

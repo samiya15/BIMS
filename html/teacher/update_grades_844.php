@@ -435,7 +435,8 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                 <div class="alert-error">⚠️ No subjects assigned to this student.</div>
             <?php else: ?>
                 <div style="margin-bottom: 15px;">
-                    <a href="view_report_card.php?student_id=<?php echo $student_id; ?>" class="button" style="background: var(--yellow); color: var(--black);">
+                    <a href="
+                    view_report_card_844.php?student_id=<?php echo $student_id; ?>" class="button" style="background: var(--yellow); color: var(--black);">
                         📄 View Report Card
                     </a>
                 </div>
@@ -467,7 +468,8 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                                                 <?php if ($is_locked): ?>
                                                     <span class="locked-badge">🔒 Locked</span>
                                                 <?php endif; ?>
-                                                <a href="view_report_card.php?student_id=<?php echo $student_id; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
+                                                <a href="
+                                                view_report_card_844.php?student_id=<?php echo $student_id; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
                                                    class="view-report-btn" 
                                                    onclick="event.stopPropagation();">
                                                     📄 View Report Card

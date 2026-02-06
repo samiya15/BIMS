@@ -67,6 +67,17 @@ foreach ($all_grades as $g) {
     ];
 }
 
+/* ---------- GET ALL PCI DATA ---------- */
+$pci_stmt = $pdo->prepare("SELECT * FROM pci_assessments WHERE student_id = ?");
+$pci_stmt->execute([$student_id]);
+$all_pci = $pci_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Organize by year -> term
+$pci_organized = [];
+foreach ($all_pci as $pci) {
+    $pci_organized[$pci['academic_year']][$pci['term']] = $pci;
+}
+
 /* ---------- CHECK PERMISSIONS ---------- */
 function isUploadEnabled($year, $term, $assessment, $curriculum, $pdo) {
     $check = $pdo->prepare("SELECT is_enabled FROM grade_upload_permissions WHERE academic_year = ? AND term = ? AND assessment_type = ? AND curriculum_name = ?");
@@ -92,6 +103,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $comments_data = $_POST['comments'] ?? [];
     $lock_submission = isset($_POST['lock_submission']) ? 1 : 0;
     $class_teacher_comment = isset($_POST['class_teacher_comment']) ? trim($_POST['class_teacher_comment']) : null;
+    $pci_data = $_POST['pci'] ?? []; // PCI data for End-Term
     
     $is_locked = areGradesLocked($student_id, $selected_year, $selected_term, $selected_assessment, $pdo);
     
@@ -139,7 +151,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     else $grade = 'BE2';
                     
                     $grade_points = null;
-                    $points_stmt = $pdo->prepare("SELECT points FROM cbc_grading_scale WHERE grade_code = ?");
+                    $points_stmt = $pdo->prepare("SELECT points FROM cbe_grading_scale WHERE grade_code = ?");
                     $points_stmt->execute([$grade]);
                     $points_row = $points_stmt->fetch();
                     $grade_points = $points_row ? $points_row['points'] : null;
@@ -197,6 +209,98 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             $insert_sub = $pdo->prepare("INSERT INTO grade_submissions (student_id, teacher_id, academic_year, term, assessment_type, is_locked) VALUES (?, ?, ?, ?, ?, 1)");
                             $insert_sub->execute([$student_id, $teacher['id'], $selected_year, $selected_term, $selected_assessment]);
                         }
+                    }
+                }
+                
+                // Save PCI data for End-Term assessments (Class Teacher only)
+                if ($selected_assessment == 'End-Term' && !empty($pci_data) && $teacher['category'] == 'Class Teacher') {
+                    // Check if PCI record exists
+                    $pci_check = $pdo->prepare("SELECT id FROM pci_assessments WHERE student_id = ? AND academic_year = ? AND term = ?");
+                    $pci_check->execute([$student_id, $selected_year, $selected_term]);
+                    $existing_pci = $pci_check->fetch();
+                    
+                    if ($existing_pci) {
+                        // Update existing PCI
+                        $update_pci = $pdo->prepare("
+                            UPDATE pci_assessments SET
+                                communication_collaboration = ?,
+                                self_efficacy = ?,
+                                critical_thinking = ?,
+                                creativity_imagination = ?,
+                                citizenship = ?,
+                                digital_literacy = ?,
+                                learning_to_learn = ?,
+                                love = ?,
+                                respect = ?,
+                                responsibility = ?,
+                                unity = ?,
+                                peace = ?,
+                                integrity = ?,
+                                discipline = ?,
+                                organization = ?,
+                                tidiness = ?,
+                                projects_manipulative_skills = ?,
+                                extended_activities = ?,
+                                teacher_id = ?,
+                                updated_at = NOW()
+                            WHERE id = ?
+                        ");
+                        $update_pci->execute([
+                            $pci_data['communication_collaboration'] ?? null,
+                            $pci_data['self_efficacy'] ?? null,
+                            $pci_data['critical_thinking'] ?? null,
+                            $pci_data['creativity_imagination'] ?? null,
+                            $pci_data['citizenship'] ?? null,
+                            $pci_data['digital_literacy'] ?? null,
+                            $pci_data['learning_to_learn'] ?? null,
+                            $pci_data['love'] ?? null,
+                            $pci_data['respect'] ?? null,
+                            $pci_data['responsibility'] ?? null,
+                            $pci_data['unity'] ?? null,
+                            $pci_data['peace'] ?? null,
+                            $pci_data['integrity'] ?? null,
+                            $pci_data['discipline'] ?? null,
+                            $pci_data['organization'] ?? null,
+                            $pci_data['tidiness'] ?? null,
+                            $pci_data['projects_manipulative_skills'] ?? null,
+                            $pci_data['extended_activities'] ?? null,
+                            $teacher['id'],
+                            $existing_pci['id']
+                        ]);
+                    } else {
+                        // Insert new PCI
+                        $insert_pci = $pdo->prepare("
+                            INSERT INTO pci_assessments (
+                                student_id, academic_year, term,
+                                communication_collaboration, self_efficacy, critical_thinking,
+                                creativity_imagination, citizenship, digital_literacy, learning_to_learn,
+                                love, respect, responsibility, unity, peace, integrity,
+                                discipline, organization, tidiness, projects_manipulative_skills, extended_activities,
+                                teacher_id
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $insert_pci->execute([
+                            $student_id, $selected_year, $selected_term,
+                            $pci_data['communication_collaboration'] ?? null,
+                            $pci_data['self_efficacy'] ?? null,
+                            $pci_data['critical_thinking'] ?? null,
+                            $pci_data['creativity_imagination'] ?? null,
+                            $pci_data['citizenship'] ?? null,
+                            $pci_data['digital_literacy'] ?? null,
+                            $pci_data['learning_to_learn'] ?? null,
+                            $pci_data['love'] ?? null,
+                            $pci_data['respect'] ?? null,
+                            $pci_data['responsibility'] ?? null,
+                            $pci_data['unity'] ?? null,
+                            $pci_data['peace'] ?? null,
+                            $pci_data['integrity'] ?? null,
+                            $pci_data['discipline'] ?? null,
+                            $pci_data['organization'] ?? null,
+                            $pci_data['tidiness'] ?? null,
+                            $pci_data['projects_manipulative_skills'] ?? null,
+                            $pci_data['extended_activities'] ?? null,
+                            $teacher['id']
+                        ]);
                     }
                 }
                 
@@ -548,6 +652,315 @@ $assessments = ['Opener', 'Mid-Term', 'End-Term'];
                                                                 This comment will be reviewed by the Head Teacher and included in the final report card.
                                                             </small>
                                                         </div>
+                                                        
+                                                        <?php if ($assessment == 'End-Term'): ?>
+                                                            <!-- PCI ASSESSMENT BUTTON -->
+                                                            <div style="margin: 20px 0; padding: 15px; background: #e3f2fd; border-left: 4px solid #2196f3; border-radius: 6px;">
+                                                                <button type="button" onclick="togglePCI()" class="button" style="background: #2196f3; width: auto;">
+                                                                    📋 Fill PCI Assessment (Core Competencies, Values & Others)
+                                                                </button>
+                                                                <small style="display: block; margin-top: 10px; color: #666;">
+                                                                    Required for End-Term reports only
+                                                                </small>
+                                                            </div>
+                                                            
+                                                            <!-- PCI FORM (Hidden by default) -->
+                                                            <div id="pci-form-<?php echo $year . '_' . $term . '_' . $assessment; ?>" style="display: none; margin: 20px 0; padding: 20px; background: #f9f9f9; border-radius: 8px; border: 2px solid #2196f3;">
+                                                                <h3 style="color: #2196f3; margin-bottom: 15px;">📋 PCI Assessment - End-Term</h3>
+                                                                
+                                                                <?php
+                                                                // Get existing PCI data for this year/term
+                                                                $existing_pci = $pci_organized[$year][$term] ?? [];
+                                                                ?>
+                                                                
+                                                                <!-- CORE COMPETENCIES -->
+                                                                <div style="margin-bottom: 20px;">
+                                                                    <h4 style="color: var(--navy); border-bottom: 2px solid var(--yellow); padding-bottom: 5px;">Core Competencies</h4>
+                                                                    <div class="grade-input-grid">
+                                                                        <div class="grade-input-item">
+                                                                            <label>Communication & Collaboration (CC)</label>
+                                                                            <select name="pci[communication_collaboration]" <?php echo $is_locked ? 'disabled' : ''; ?>>
+                                                                                <option value="">Select Grade</option>
+                                                                                <?php
+                                                                                $grades_options = ['EE1', 'EE2', 'ME1', 'ME2', 'AE1', 'AE2', 'BE1', 'BE2'];
+                                                                                foreach ($grades_options as $grade_opt) {
+                                                                                    $selected = ($existing_pci['communication_collaboration'] ?? '') == $grade_opt ? 'selected' : '';
+                                                                                    echo "<option value=\"$grade_opt\" $selected>$grade_opt</option>";
+                                                                                }
+                                                                                ?>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Self Efficacy (SE)</label>
+                                                                            <select name="pci[self_efficacy]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Critical Thinking & Problem Solving (CT)</label>
+                                                                            <select name="pci[critical_thinking]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Creativity & Imagination (CI)</label>
+                                                                            <select name="pci[creativity_imagination]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Citizenship (CZ)</label>
+                                                                            <select name="pci[citizenship]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Digital Literacy (DL)</label>
+                                                                            <select name="pci[digital_literacy]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Learning to Learn (L&L)</label>
+                                                                            <select name="pci[learning_to_learn]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- VALUES -->
+                                                                <div style="margin-bottom: 20px;">
+                                                                    <h4 style="color: var(--navy); border-bottom: 2px solid var(--yellow); padding-bottom: 5px;">Values</h4>
+                                                                    <div class="grade-input-grid">
+                                                                        <div class="grade-input-item">
+                                                                            <label>Love</label>
+                                                                            <select name="pci[love]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Respect (RST)</label>
+                                                                            <select name="pci[respect]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Responsibility (RTY)</label>
+                                                                            <select name="pci[responsibility]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Unity</label>
+                                                                            <select name="pci[unity]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Peace (PC)</label>
+                                                                            <select name="pci[peace]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Integrity (ITY)</label>
+                                                                            <select name="pci[integrity]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- DISCIPLINE & OTHERS -->
+                                                                <div style="margin-bottom: 20px;">
+                                                                    <h4 style="color: var(--navy); border-bottom: 2px solid var(--yellow); padding-bottom: 5px;">Discipline & Others</h4>
+                                                                    <div class="grade-input-grid">
+                                                                        <div class="grade-input-item">
+                                                                            <label>Discipline (DNE)</label>
+                                                                            <select name="pci[discipline]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Organization (ORG)</label>
+                                                                            <select name="pci[organization]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Tidiness (TID)</label>
+                                                                            <select name="pci[tidiness]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Projects & Manipulative Skills (P&MS)</label>
+                                                                            <select name="pci[projects_manipulative_skills]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        
+                                                                        <div class="grade-input-item">
+                                                                            <label>Extended Activities (EA)</label>
+                                                                            <select name="pci[extended_activities]">
+                                                                                <option value="">Select Grade</option>
+                                                                                <option value="EE1">EE1</option>
+                                                                                <option value="EE2">EE2</option>
+                                                                                <option value="ME1">ME1</option>
+                                                                                <option value="ME2">ME2</option>
+                                                                                <option value="AE1">AE1</option>
+                                                                                <option value="AE2">AE2</option>
+                                                                                <option value="BE1">BE1</option>
+                                                                                <option value="BE2">BE2</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        <?php endif; ?>
                                                     <?php endif; ?>
                                                     
                                                     <div class="lock-checkbox">
@@ -601,6 +1014,17 @@ function confirmSubmit(form) {
         <?php endif; ?>
     }
     return true;
+}
+
+function togglePCI() {
+    // Find all PCI forms and toggle the one that's in view
+    const pciForms = document.querySelectorAll('[id^="pci-form-"]');
+    pciForms.forEach(form => {
+        const parent = form.closest('.collapsible-content');
+        if (parent && !parent.classList.contains('collapsed')) {
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+    });
 }
 
 // Collapse all by default except current year

@@ -116,6 +116,17 @@ $comments = $comments_stmt->fetch(PDO::FETCH_ASSOC);
 $class_teacher_comment = $comments['class_teacher_comment'] ?? '';
 $principal_comment = $comments['principal_comment'] ?? '';
 
+/* ---------- GET PCI DATA FOR END-TERM ---------- */
+$pci_data = [];
+if ($assessment == 'End-Term') {
+    $pci_stmt = $pdo->prepare("
+        SELECT * FROM pci_assessments 
+        WHERE student_id = ? AND academic_year = ? AND term = ?
+    ");
+    $pci_stmt->execute([$student_id, $academic_year, $term]);
+    $pci_data = $pci_stmt->fetch(PDO::FETCH_ASSOC);
+}
+
 /* ---------- CALCULATE OVERALL STATS ---------- */
 $total_points = 0;
 $subjects_with_grades = 0;
@@ -538,6 +549,180 @@ $total_students = count($rankings);
         <div class="rubric-item" style="background: #f44336; color: white;">BE1 (2 pts)</div>
         <div class="rubric-item" style="background: #f44336; color: white;">BE2 (1 pt)</div>
     </div>
+
+    <?php if ($assessment == 'End-Term' && !empty($pci_data)): ?>
+        <!-- PCI ASSESSMENT SECTION -->
+        <div style="page-break-inside: avoid; margin: 30px 0;">
+            <h3 style="color: var(--navy); background: var(--yellow); padding: 10px; text-align: center; margin-bottom: 20px;">
+                PERTINENT CURRICULUM ISSUES (PCI)
+            </h3>
+            
+            <!-- CORE COMPETENCIES -->
+            <div style="margin-bottom: 20px;">
+                <h4 style="background: #e3f2fd; padding: 8px; color: var(--navy); border-left: 4px solid #2196f3;">CORE COMPETENCIES</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px; width: 70%;">Communication and Collaboration (CC)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['communication_collaboration'] ?? ''; ?>">
+                                <?php echo $pci_data['communication_collaboration'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Self Efficacy (SE)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['self_efficacy'] ?? ''; ?>">
+                                <?php echo $pci_data['self_efficacy'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Critical Thinking & Problem Solving (CT)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['critical_thinking'] ?? ''; ?>">
+                                <?php echo $pci_data['critical_thinking'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Creativity & Imagination (CI)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['creativity_imagination'] ?? ''; ?>">
+                                <?php echo $pci_data['creativity_imagination'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Citizenship (CZ)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['citizenship'] ?? ''; ?>">
+                                <?php echo $pci_data['citizenship'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Digital Literacy (DL)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['digital_literacy'] ?? ''; ?>">
+                                <?php echo $pci_data['digital_literacy'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Learning to Learn (L&L)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['learning_to_learn'] ?? ''; ?>">
+                                <?php echo $pci_data['learning_to_learn'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- VALUES -->
+            <div style="margin-bottom: 20px;">
+                <h4 style="background: #fff3e0; padding: 8px; color: var(--navy); border-left: 4px solid #ff9800;">VALUES</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px; width: 70%;">Love</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['love'] ?? ''; ?>">
+                                <?php echo $pci_data['love'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Respect (RST)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['respect'] ?? ''; ?>">
+                                <?php echo $pci_data['respect'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Responsibility (RTY)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['responsibility'] ?? ''; ?>">
+                                <?php echo $pci_data['responsibility'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Unity</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['unity'] ?? ''; ?>">
+                                <?php echo $pci_data['unity'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Peace (PC)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['peace'] ?? ''; ?>">
+                                <?php echo $pci_data['peace'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Integrity (ITY)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['integrity'] ?? ''; ?>">
+                                <?php echo $pci_data['integrity'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- OTHERS/DISCIPLINE -->
+            <div style="margin-bottom: 20px;">
+                <h4 style="background: #f3e5f5; padding: 8px; color: var(--navy); border-left: 4px solid #9c27b0;">OTHERS</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px; width: 70%;">Discipline (DNE)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['discipline'] ?? ''; ?>">
+                                <?php echo $pci_data['discipline'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Organization (ORG)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['organization'] ?? ''; ?>">
+                                <?php echo $pci_data['organization'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Tidiness (TID)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['tidiness'] ?? ''; ?>">
+                                <?php echo $pci_data['tidiness'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Projects & Manipulative Skills (P & M S)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['projects_manipulative_skills'] ?? ''; ?>">
+                                <?php echo $pci_data['projects_manipulative_skills'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px;">Extended Activities (EA)</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span class="grade-badge grade-<?php echo $pci_data['extended_activities'] ?? ''; ?>">
+                                <?php echo $pci_data['extended_activities'] ?? '-'; ?>
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <!-- COMMENTS -->
     <div class="comments-section">

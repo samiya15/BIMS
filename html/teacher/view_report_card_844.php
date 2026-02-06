@@ -446,7 +446,7 @@ $total_students = count($rankings);
             <div class="logo">NLA</div>
             <div>
                 <div class="school-name">THE NAIROBI LEADERSHIP ACADEMY</div>
-                <div class="school-subtitle">JUNIOR SCHOOL</div>
+                <div class="school-subtitle">8-4-4 HIGH SCHOOL</div>
                 <div class="school-subtitle" style="font-style: italic; color: #f4c430; font-weight: 600;">SIMPLIFY, INSPIRE, TRANSFORM</div>
             </div>
         </div>
