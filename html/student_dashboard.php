@@ -260,7 +260,8 @@ if (!empty($student['admission_number'])) {
                                             <div class="reports-grid">
                                                 <?php foreach ($assessments as $assessment): ?>
                                                     <?php if (isset($existing_reports[$year][$term][$assessment])): ?>
-                                                        <a href="teacher/view_report_card_844.php?student_id=<?php echo $student['id']; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
+                                                      
+                                                        <a href="teacher/view_report_card.php?student_id=<?php echo $student['id']; ?> &curriculum=<?php echo urlencode($student['curriculum_name']); ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
                                                            class="report-card-link"
                                                            target="_blank">
                                                             <span class="report-icon">📄</span>
@@ -271,6 +272,7 @@ if (!empty($student['admission_number'])) {
                                                             </div>
                                                             <span style="font-size: 24px;">→</span>
                                                         </a>
+                                                        
                                                     <?php endif; ?>
                                                 <?php endforeach; ?>
                                             </div>

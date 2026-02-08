@@ -81,9 +81,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['email']) && isset($_PO
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 10px;
             position: relative;
-            overflow: hidden;
+            overflow-x: hidden;
         }
         
         /* Animated background particles */
@@ -383,22 +383,65 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['email']) && isset($_PO
         }
         
         /* Responsive */
-        @media (max-width: 480px) {
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            
             .login-container {
-                padding: 40px 25px;
+                padding: 30px 20px;
+                border-radius: 15px;
             }
             
             h1 {
-                font-size: 24px;
+                font-size: 22px;
             }
             
             .logo-circle {
-                width: 80px;
-                height: 80px;
+                width: 70px;
+                height: 70px;
             }
             
             .logo-text {
-                font-size: 28px;
+                font-size: 24px;
+            }
+            
+            input[type="email"],
+            input[type="password"] {
+                padding: 12px 12px 12px 40px;
+                font-size: 14px;
+            }
+            
+            button {
+                padding: 14px;
+                font-size: 15px;
+            }
+            
+            .form-group {
+                margin-bottom: 20px;
+            }
+        }
+        
+        @media (max-width: 400px) {
+            .login-container {
+                padding: 25px 15px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+            
+            .subtitle {
+                font-size: 12px;
+            }
+            
+            .logo-circle {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .logo-text {
+                font-size: 20px;
             }
         }
         

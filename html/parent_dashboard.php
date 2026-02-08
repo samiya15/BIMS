@@ -60,9 +60,9 @@ if (!empty($parent['linked_students'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parent Dashboard</title>
+    <title>Parent Dashboard - BIMS</title>
     <link rel="stylesheet" href="assets/css/admin.css">
-    <link rel="stylesheet" href="assets/css/student.css">
+    <link rel="stylesheet" href="assets/css/parent.css">
 </head>
 <body>
 
@@ -79,7 +79,7 @@ if (!empty($parent['linked_students'])) {
         <!-- WELCOME CARD -->
         <div class="card welcome-card">
             <h1>Welcome, <?php echo htmlspecialchars($parent_name); ?> 👋</h1>
-            <p style="color: rgba(255,255,255,0.9);">
+            <p>
                 <?php if (!empty($parent['relationship'])): ?>
                     Role: <?php echo htmlspecialchars($parent['relationship']); ?>
                 <?php endif; ?>
@@ -93,23 +93,44 @@ if (!empty($parent['linked_students'])) {
         <?php if (!empty($linked_students)): ?>
             <div class="card">
                 <h2>👨‍👩‍👧‍👦 My Children</h2>
-                <div class="parents-grid">
+                <div class="children-grid">
                     <?php foreach ($linked_students as $student): ?>
-                        <div class="parent-card">
-                            <div class="parent-icon">🎓</div>
-                            <div class="parent-info">
-                                <h4><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></h4>
-                                <p class="parent-relationship">Adm No: <?php echo htmlspecialchars($student['admission_number']); ?></p>
-                                <p class="parent-contact">
-                                    📚 <?php echo htmlspecialchars($student['curriculum_name'] ?? 'Not Assigned'); ?> - <?php echo htmlspecialchars($student['class_name'] ?? 'Not Assigned'); ?>
-                                </p>
-                                <p class="parent-contact">
-                                    Status: <span class="status-badge <?php echo $student['status'] ? 'active' : 'inactive'; ?>">
+                        <div class="child-card">
+                            <div class="child-header">
+                                <div class="child-avatar">🎓</div>
+                                <div class="child-name">
+                                    <h3><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></h3>
+                                    <div class="child-adm">Adm No: <?php echo htmlspecialchars($student['admission_number']); ?></div>
+                                </div>
+                            </div>
+                            
+                            <div class="child-details">
+                                <div class="detail-row">
+                                    <span class="detail-label">Curriculum</span>
+                                    <span class="detail-value"><?php echo htmlspecialchars($student['curriculum_name'] ?? 'Not Assigned'); ?></span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Class</span>
+                                    <span class="detail-value"><?php echo htmlspecialchars($student['class_name'] ?? 'Not Assigned'); ?></span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Gender</span>
+                                    <span class="detail-value"><?php echo htmlspecialchars($student['gender']); ?></span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Status</span>
+                                    <span class="status-badge <?php echo $student['status'] ? 'active' : 'inactive'; ?>">
                                         <?php echo $student['status'] ? 'Active' : 'Inactive'; ?>
                                     </span>
-                                </p>
-                                <a href="parent/view_child_grades.php?student_id=<?php echo $student['id']; ?>" class="grade-button" style="margin-top: 10px;">
-                                    View Grades
+                                </div>
+                            </div>
+                            
+                            <div class="child-actions">
+                                <a href="parent/view_child_grades.php?student_id=<?php echo $student['id']; ?>" class="btn-view-grades">
+                                    📊 View Grades
+                                </a>
+                                <a href="teacher/view_report_card.php?student_id=<?php echo $student['id']; ?>" class="btn-view-report">
+                                    📄 View Report Card
                                 </a>
                             </div>
                         </div>
@@ -119,10 +140,14 @@ if (!empty($parent['linked_students'])) {
         <?php else: ?>
             <div class="card">
                 <h2>👨‍👩‍👧‍👦 My Children</h2>
-                <p class="no-data">No children linked yet. Please update your profile with your child's admission number(s).</p>
-                <a href="parent/my_profile.php" class="button" style="max-width: 300px; margin: 20px auto 0;">
-                    Update Profile
-                </a>
+                <div class="no-children">
+                    <div class="no-children-icon">🎒</div>
+                    <h3>No Children Linked</h3>
+                    <p>Please update your profile with your child's admission number(s) to see their information.</p>
+                    <a href="parent/my_profile.php" class="button" style="max-width: 300px; margin: 0 auto;">
+                        Update Profile
+                    </a>
+                </div>
             </div>
         <?php endif; ?>
     </div>

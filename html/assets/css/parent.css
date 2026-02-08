@@ -1,0 +1,657 @@
+/* ---------- PARENT DASHBOARD STYLES ---------- */
+
+/* Reuse student.css styles for consistency */
+.welcome-card {
+    background: linear-gradient(135deg, var(--navy) 0%, #1a3a52 100%);
+    color: white;
+    border-left: 6px solid var(--yellow);
+}
+
+.welcome-card h1 {
+    color: white;
+    margin-bottom: 20px;
+}
+
+.welcome-card p {
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 10px;
+}
+
+/* ---------- CHILDREN GRID ---------- */
+.children-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.child-card {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    border-left: 5px solid var(--yellow);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.child-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.child-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.child-avatar {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--navy), #1a3a52);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+.child-name {
+    flex: 1;
+}
+
+.child-name h3 {
+    color: var(--navy);
+    font-size: 20px;
+    margin-bottom: 5px;
+}
+
+.child-adm {
+    color: #666;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.child-details {
+    margin-bottom: 20px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    color: #666;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.detail-value {
+    color: var(--navy);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.child-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.btn-view-grades {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--yellow);
+    color: var(--black);
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.btn-view-grades:hover {
+    background: #ddb300;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(244, 196, 48, 0.3);
+}
+
+.btn-view-report {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--navy);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.btn-view-report:hover {
+    background: var(--black);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(11, 28, 45, 0.3);
+}
+
+/* ---------- NO CHILDREN MESSAGE ---------- */
+.no-children {
+    text-align: center;
+    padding: 60px 40px;
+    background: white;
+    border-radius: 10px;
+    border: 2px dashed #ddd;
+}
+
+.no-children-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.3;
+}
+
+.no-children h3 {
+    color: var(--navy);
+    margin-bottom: 10px;
+    font-size: 20px;
+}
+
+.no-children p {
+    color: #666;
+    margin-bottom: 25px;
+    font-size: 15px;
+}
+
+/* ---------- PARENT PROFILE STYLES ---------- */
+.profile-section {
+    background: #fff9e6;
+    padding: 20px;
+    border-left: 4px solid var(--yellow);
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.profile-section h3 {
+    color: var(--navy);
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.profile-item {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.profile-item strong {
+    display: block;
+    color: var(--navy);
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.profile-item span {
+    color: #555;
+    font-size: 15px;
+}
+
+/* ---------- LINKED INFO ---------- */
+.linked-info {
+    background: #f0f8ff;
+    padding: 20px;
+    border-left: 4px solid #2196f3;
+    border-radius: 6px;
+    margin-top: 20px;
+}
+
+.linked-info h3 {
+    color: var(--navy);
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+.linked-info ul {
+    list-style: none;
+    padding: 0;
+}
+
+.linked-info li {
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.linked-info li:last-child {
+    margin-bottom: 0;
+}
+
+.linked-info strong {
+    color: var(--navy);
+    font-size: 15px;
+}
+
+.parent-email {
+    color: #666;
+    font-size: 13px;
+}
+
+.no-parents {
+    background: #fff3cd;
+    border-left-color: #ffc107;
+}
+
+.no-parents p {
+    color: #856404;
+    margin: 0;
+}
+
+/* ---------- PARENTS GRID (for student/teacher viewing parents) ---------- */
+.parents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.parent-card {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid var(--navy);
+    display: flex;
+    gap: 15px;
+}
+
+.parent-icon {
+    font-size: 48px;
+    color: var(--navy);
+}
+
+.parent-info h4 {
+    color: var(--navy);
+    margin-bottom: 5px;
+}
+
+.parent-relationship {
+    color: #666;
+    font-size: 13px;
+    font-style: italic;
+    margin-bottom: 10px;
+}
+
+.parent-contact {
+    font-size: 14px;
+    color: #555;
+    margin: 5px 0;
+}
+
+/* ---------- RESPONSIVE MOBILE DESIGN ---------- */
+@media (max-width: 768px) {
+    .welcome-card h1 {
+        font-size: 22px;
+        margin-bottom: 15px;
+    }
+    
+    .welcome-card p {
+        font-size: 14px;
+    }
+    
+    .children-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .child-card {
+        padding: 20px;
+    }
+    
+    .child-header {
+        gap: 12px;
+        margin-bottom: 15px;
+        padding-bottom: 12px;
+    }
+    
+    .child-avatar {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+    }
+    
+    .child-name h3 {
+        font-size: 18px;
+    }
+    
+    .child-adm {
+        font-size: 12px;
+    }
+    
+    .detail-row {
+        padding: 8px 0;
+    }
+    
+    .detail-label,
+    .detail-value {
+        font-size: 13px;
+    }
+    
+    .status-badge {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+    
+    .btn-view-grades,
+    .btn-view-report {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+    
+    .no-children {
+        padding: 40px 20px;
+    }
+    
+    .no-children-icon {
+        font-size: 48px;
+    }
+    
+    .no-children h3 {
+        font-size: 18px;
+    }
+    
+    .no-children p {
+        font-size: 14px;
+    }
+    
+    .profile-section {
+        padding: 15px;
+    }
+    
+    .profile-section h3 {
+        font-size: 16px;
+    }
+    
+    .profile-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .profile-item {
+        padding: 12px;
+    }
+    
+    .profile-item strong {
+        font-size: 12px;
+    }
+    
+    .profile-item span {
+        font-size: 14px;
+    }
+    
+    .linked-info {
+        padding: 15px;
+    }
+    
+    .linked-info h3 {
+        font-size: 16px;
+    }
+    
+    .linked-info li {
+        padding: 10px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .linked-info strong {
+        font-size: 14px;
+    }
+    
+    .parent-email {
+        font-size: 12px;
+    }
+    
+    .parents-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .parent-card {
+        padding: 15px;
+        gap: 12px;
+    }
+    
+    .parent-icon {
+        font-size: 36px;
+    }
+    
+    .parent-info h4 {
+        font-size: 16px;
+    }
+    
+    .parent-contact {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .welcome-card h1 {
+        font-size: 20px;
+    }
+    
+    .welcome-card p {
+        font-size: 13px;
+    }
+    
+    .child-card {
+        padding: 15px;
+    }
+    
+    .child-header {
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    
+    .child-avatar {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+    
+    .child-name h3 {
+        font-size: 16px;
+    }
+    
+    .child-adm {
+        font-size: 11px;
+    }
+    
+    .detail-row {
+        padding: 6px 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+    }
+    
+    .detail-label,
+    .detail-value {
+        font-size: 12px;
+    }
+    
+    .btn-view-grades,
+    .btn-view-report {
+        padding: 10px 14px;
+        font-size: 12px;
+    }
+    
+    .no-children {
+        padding: 30px 15px;
+    }
+    
+    .no-children-icon {
+        font-size: 40px;
+    }
+    
+    .no-children h3 {
+        font-size: 16px;
+    }
+    
+    .no-children p {
+        font-size: 13px;
+    }
+    
+    .profile-section {
+        padding: 12px;
+    }
+    
+    .profile-section h3 {
+        font-size: 15px;
+    }
+    
+    .profile-item {
+        padding: 10px;
+    }
+    
+    .profile-item strong {
+        font-size: 11px;
+    }
+    
+    .profile-item span {
+        font-size: 13px;
+    }
+    
+    .linked-info {
+        padding: 12px;
+    }
+    
+    .linked-info h3 {
+        font-size: 15px;
+    }
+    
+    .linked-info li {
+        padding: 8px;
+    }
+    
+    .linked-info strong {
+        font-size: 13px;
+    }
+    
+    .parent-email {
+        font-size: 11px;
+    }
+    
+    .parent-card {
+        padding: 12px;
+        gap: 10px;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .parent-icon {
+        font-size: 32px;
+    }
+    
+    .parent-info h4 {
+        font-size: 15px;
+    }
+    
+    .parent-contact {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 360px) {
+    .welcome-card h1 {
+        font-size: 18px;
+    }
+    
+    .child-name h3 {
+        font-size: 15px;
+    }
+    
+    .child-avatar {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .btn-view-grades,
+    .btn-view-report {
+        font-size: 11px;
+        padding: 8px 12px;
+    }
+    
+    .no-children-icon {
+        font-size: 36px;
+    }
+}
+
+/* ---------- LANDSCAPE OPTIMIZATION ---------- */
+@media (max-width: 768px) and (orientation: landscape) {
+    .children-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .child-card {
+        padding: 15px;
+    }
+    
+    .child-header {
+        gap: 10px;
+    }
+    
+    .child-avatar {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .detail-row {
+        padding: 5px 0;
+    }
+}

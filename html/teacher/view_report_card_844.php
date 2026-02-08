@@ -171,6 +171,31 @@ foreach ($rankings as $rank) {
 }
 
 $total_students = count($rankings);
+/* ---------- GET PARENT COMMENT ---------- */
+$parent_comment = '';
+$parent_comment_date = '';
+try {
+    $parent_comment_stmt = $pdo->prepare("
+        SELECT pc.comment, pc.updated_at, p.first_name, p.last_name, p.relationship
+        FROM parent_comments pc
+        JOIN parents p ON pc.parent_id = p.id
+        WHERE pc.student_id = ? AND pc.academic_year = ? AND pc.term = ? AND pc.assessment_type = ?
+        LIMIT 1
+    ");
+    $parent_comment_stmt->execute([$student_id, $academic_year, $term, $assessment]);
+    $parent_comment_data = $parent_comment_stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($parent_comment_data) {
+        $parent_comment = $parent_comment_data['comment'];
+        $parent_comment_date = date('M d, Y', strtotime($parent_comment_data['updated_at']));
+        $parent_name = $parent_comment_data['first_name'] . ' ' . $parent_comment_data['last_name'];
+        $parent_relationship = $parent_comment_data['relationship'] ?? 'Parent/Guardian';
+    }
+} catch (PDOException $e) {
+    // Table might not exist yet
+    $parent_comment = '';
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -558,10 +583,19 @@ $total_students = count($rankings);
         </div>
         
         <div class="comment-box">
-            <h4>PARENT'S COMMENT:</h4>
-            <div style="min-height: 60px; color: #888; font-style: italic;">
-                [Comments to be added by parent]
-            </div>
+            <h4>PARENT/GUARDIAN'S COMMENT:</h4>
+            <?php if (!empty($parent_comment)): ?>
+                <div class="comment-content">
+                    <?php echo nl2br(htmlspecialchars($parent_comment)); ?>
+                </div>
+                <div class="comment-meta">
+                    — <?php echo htmlspecialchars($parent_name ?? ''); ?> (<?php echo htmlspecialchars($parent_relationship); ?>), <?php echo $parent_comment_date; ?>
+                </div>
+            <?php else: ?>
+                <div class="comment-placeholder">
+                    [No parent comment added yet]
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
