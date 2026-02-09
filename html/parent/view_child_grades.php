@@ -464,11 +464,11 @@ foreach ($parent_comments_raw as $comment) {
                 </div>
                 <div class="info-item">
                     <span class="info-label">Class:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($student['class_name'] ?? 'Not Assigned'); ?></span>
+                    <span class="info-value"><?php echo $student['class_name'] !== null ? htmlspecialchars($student['class_name']) : 'Not Assigned'; ?></span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Curriculum:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($student['curriculum_name'] ?? 'Not Assigned'); ?></span>
+                    <span class="info-value"><?php echo $student['curriculum_name'] !== null ? htmlspecialchars($student['curriculum_name']) : 'Not Assigned'; ?></span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Gender:</span>
@@ -477,11 +477,11 @@ foreach ($parent_comments_raw as $comment) {
             </div>
         </div>
 
-        <?php if (isset($success)): ?>
+        <?php if (isset($success) && $success): ?>
             <div class="alert-success">✅ <?php echo htmlspecialchars($success); ?></div>
         <?php endif; ?>
 
-        <?php if (isset($error)): ?>
+        <?php if (isset($error) && $error): ?>
             <div class="alert-error">❌ <?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 
@@ -531,6 +531,52 @@ foreach ($parent_comments_raw as $comment) {
                                         }
                                         $mean_points = $subjects_count > 0 ? round($total_points / $subjects_count, 2) : 0;
                                         
+                                        // Calculate class position
+                                        $class_position = '-';
+                                        $total_students = 0;
+                                        
+                                        try {
+                                            $position_stmt = $pdo->prepare("
+                                                SELECT COUNT(DISTINCT s.id) + 1 as position,
+                                                       (SELECT COUNT(DISTINCT s2.id) 
+                                                        FROM students s2
+                                                        JOIN grades g2 ON s2.id = g2.student_id
+                                                        WHERE s2.class_level_id = (SELECT class_level_id FROM students WHERE id = ?)
+                                                        AND g2.academic_year = ?
+                                                        AND g2.term = ?
+                                                        AND g2.assessment_type = ?
+                                                       ) as total
+                                                FROM students s
+                                                JOIN grades g ON s.id = g.student_id
+                                                WHERE s.class_level_id = (SELECT class_level_id FROM students WHERE id = ?)
+                                                AND g.academic_year = ?
+                                                AND g.term = ?
+                                                AND g.assessment_type = ?
+                                                AND (
+                                                    SELECT AVG(g3.grade_points)
+                                                    FROM grades g3
+                                                    WHERE g3.student_id = s.id
+                                                    AND g3.academic_year = ?
+                                                    AND g3.term = ?
+                                                    AND g3.assessment_type = ?
+                                                ) > ?
+                                            ");
+                                            $position_stmt->execute([
+                                                $student_id, $year, $term, $assessment,
+                                                $student_id, $year, $term, $assessment,
+                                                $year, $term, $assessment,
+                                                $mean_points
+                                            ]);
+                                            $position_result = $position_stmt->fetch(PDO::FETCH_ASSOC);
+                                            
+                                            if ($position_result) {
+                                                $class_position = $position_result['position'];
+                                                $total_students = $position_result['total'];
+                                            }
+                                        } catch (PDOException $e) {
+                                            // Keep position as '-' if calculation fails
+                                        }
+                                        
                                         // Get parent comment
                                         $comment_key = $year . '_' . $term . '_' . $assessment;
                                         $existing_comment = $parent_comments[$comment_key]['comment'] ?? '';
@@ -540,17 +586,21 @@ foreach ($parent_comments_raw as $comment) {
                                             <div class="assessment-title">
                                                 <span>📋 <?php echo htmlspecialchars($assessment); ?> Assessment</span>
                                                 <div>
-                                                    <a href="../teacher/view_report_card.php?student_id=<?php echo $student_id; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
+                                                    <?php
+                                                    // Use correct report card file based on curriculum
+                                                    $report_file = ($student['curriculum_name'] == '8-4-4') 
+                                                        ? '../teacher/view_report_card_844.php' 
+                                                        : '../teacher/view_report_card.php';
+                                                    ?>
+                                                    <a href="<?php echo $report_file; ?>?student_id=<?php echo $student_id; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
                                                        class="btn-view-report" 
                                                        target="_blank">
                                                         📄 View Report Card
                                                     </a>
-                                                    <a href="../teacher/view_report_card.php?student_id=<?php echo $student_id; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
-                                                       class="btn-save-pdf" 
-                                                       target="_blank"
-                                                       onclick="setTimeout(() => window.print(), 1000); return true;">
+                                                    <button onclick="printReport(<?php echo $student_id; ?>, <?php echo $year; ?>, '<?php echo addslashes($term); ?>', '<?php echo addslashes($assessment); ?>', '<?php echo $student['curriculum_name']; ?>')" 
+                                                            class="btn-save-pdf">
                                                         💾 Save as PDF
-                                                    </a>
+                                                    </button>
                                                 </div>
                                             </div>
                                             
@@ -567,6 +617,18 @@ foreach ($parent_comments_raw as $comment) {
                                                 <div class="stat-box">
                                                     <div class="stat-label">Total Points</div>
                                                     <div class="stat-value"><?php echo $total_points; ?></div>
+                                                </div>
+                                                <div class="stat-box">
+                                                    <div class="stat-label">Class Position</div>
+                                                    <div class="stat-value">
+                                                        <?php 
+                                                        if ($class_position !== '-' && $total_students > 0) {
+                                                            echo $class_position . ' / ' . $total_students;
+                                                        } else {
+                                                            echo $class_position;
+                                                        }
+                                                        ?>
+                                                    </div>
                                                 </div>
                                             </div>
                                             
@@ -590,16 +652,18 @@ foreach ($parent_comments_raw as $comment) {
                                                         <?php foreach ($grades as $grade): ?>
                                                             <tr>
                                                                 <td><strong><?php echo htmlspecialchars($grade['subject_name']); ?></strong></td>
-                                                                <td><?php echo htmlspecialchars($grade['score']); ?></td>
-                                                             
-                                                                <td><strong><?php echo htmlspecialchars($grade['final_score']); ?></strong></td>
+                                                                <td><?php echo htmlspecialchars((string)$grade['score']); ?></td>
+                                                                <?php if ($assessment != 'Opener'): ?>
+                                                                    <td><?php echo $grade['rats_score'] !== null ? htmlspecialchars((string)$grade['rats_score']) : '-'; ?></td>
+                                                                <?php endif; ?>
+                                                                <td><strong><?php echo htmlspecialchars((string)$grade['final_score']); ?></strong></td>
                                                                 <td>
                                                                     <span class="grade-badge grade-<?php echo $grade['grade']; ?>">
                                                                         <?php echo htmlspecialchars($grade['grade']); ?>
                                                                     </span>
                                                                 </td>
-                                                                <td><strong><?php echo htmlspecialchars($grade['grade_points']); ?></strong></td>
-                                                                <td style="font-size: 12px;"><?php echo htmlspecialchars($grade['teacher_comment'] ?? '-'); ?></td>
+                                                                <td><strong><?php echo htmlspecialchars((string)$grade['grade_points']); ?></strong></td>
+                                                                <td style="font-size: 12px;"><?php echo $grade['teacher_comment'] !== null ? htmlspecialchars($grade['teacher_comment']) : '-'; ?></td>
                                                             </tr>
                                                         <?php endforeach; ?>
                                                     </tbody>
@@ -617,7 +681,7 @@ foreach ($parent_comments_raw as $comment) {
                                                     
                                                     <textarea name="parent_comment" 
                                                               class="comment-textarea" 
-                                                              placeholder="Add your comment about your child's performance..."><?php echo htmlspecialchars($existing_comment); ?></textarea>
+                                                              placeholder="Add your comment about your child's performance..."><?php echo !empty($existing_comment) ? htmlspecialchars($existing_comment) : ''; ?></textarea>
                                                     
                                                     <button type="submit" class="btn-save-comment">💾 Save Comment</button>
                                                     
@@ -647,6 +711,23 @@ function togglePeriod(header) {
     const content = header.nextElementSibling;
     header.classList.toggle('collapsed');
     content.classList.toggle('collapsed');
+}
+
+function printReport(studentId, year, term, assessment, curriculum) {
+    // Use correct report card file based on curriculum
+    const reportFile = (curriculum === '8-4-4') 
+        ? '../teacher/view_report_card_844.php' 
+        : '../teacher/view_report_card.php';
+    
+    const url = `${reportFile}?student_id=${studentId}&year=${year}&term=${encodeURIComponent(term)}&assessment=${encodeURIComponent(assessment)}`;
+    const printWindow = window.open(url, '_blank');
+    
+    // Wait for the page to load, then print
+    printWindow.onload = function() {
+        setTimeout(() => {
+            printWindow.print();
+        }, 1000);
+    };
 }
 </script>
 

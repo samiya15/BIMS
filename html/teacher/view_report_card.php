@@ -64,22 +64,6 @@ foreach ($grades_raw as $grade) {
     ];
 }
 
-/* ---------- GET COMMENTS ---------- */
-$comments_stmt = $pdo->prepare("
-    SELECT class_teacher_comment, principal_comment 
-    FROM grade_submissions 
-    WHERE student_id = ? 
-        AND academic_year = ? 
-        AND term = ? 
-        AND assessment_type = ?
-");
-$comments_stmt->execute([$student_id, $academic_year, $term, $assessment]);
-$comments = $comments_stmt->fetch(PDO::FETCH_ASSOC);
-
-$class_teacher_comment = $comments['class_teacher_comment'] ?? '';
-$principal_comment = $comments['principal_comment'] ?? '';
-
-
 /* ---------- CALCULATE OVERALL STATS ---------- */
 $total_points = 0;
 $subjects_with_grades = 0;
@@ -103,7 +87,60 @@ elseif ($mean_grade_points >= 2.5) $overall_grade = 'AE2';
 elseif ($mean_grade_points >= 1.5) $overall_grade = 'BE1';
 else $overall_grade = 'BE2';
 
-$class_position = '-'; // Implement ranking if needed
+/* ---------- CALCULATE CLASS POSITION ---------- */
+$class_position = '-';
+$total_students = 0;
+
+try {
+    // Get student's class
+    $class_stmt = $pdo->prepare("SELECT class_level_id FROM students WHERE id = ?");
+    $class_stmt->execute([$student_id]);
+    $class_level_id = $class_stmt->fetchColumn();
+    
+    if ($class_level_id) {
+        // Count students in the same class with grades for this period
+        $position_stmt = $pdo->prepare("
+            SELECT COUNT(DISTINCT s.id) + 1 as position,
+                   (SELECT COUNT(DISTINCT s2.id) 
+                    FROM students s2
+                    JOIN grades g2 ON s2.id = g2.student_id
+                    WHERE s2.class_level_id = ?
+                    AND g2.academic_year = ?
+                    AND g2.term = ?
+                    AND g2.assessment_type = ?
+                   ) as total
+            FROM students s
+            JOIN grades g ON s.id = g.student_id
+            WHERE s.class_level_id = ?
+            AND g.academic_year = ?
+            AND g.term = ?
+            AND g.assessment_type = ?
+            AND (
+                SELECT AVG(g3.grade_points)
+                FROM grades g3
+                WHERE g3.student_id = s.id
+                AND g3.academic_year = ?
+                AND g3.term = ?
+                AND g3.assessment_type = ?
+            ) > ?
+        ");
+        $position_stmt->execute([
+            $class_level_id, $academic_year, $term, $assessment,
+            $class_level_id, $academic_year, $term, $assessment,
+            $academic_year, $term, $assessment,
+            $mean_grade_points
+        ]);
+        $position_result = $position_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($position_result) {
+            $class_position = $position_result['position'];
+            $total_students = $position_result['total'];
+        }
+    }
+} catch (PDOException $e) {
+    // If calculation fails, keep position as '-'
+    $class_position = '-';
+}
 
 /* ---------- GET PARENT COMMENT ---------- */
 $parent_comment = '';
@@ -453,7 +490,14 @@ try {
             <span class="info-label">MEAN POINTS:</span> <?php echo number_format($mean_grade_points, 2); ?> / 8
         </div>
         <div class="info-item">
-            <span class="info-label">CLASS POSITION:</span> <?php echo $class_position; ?>
+            <span class="info-label">CLASS POSITION:</span> 
+            <?php 
+            if ($class_position !== '-' && $total_students > 0) {
+                echo $class_position . ' / ' . $total_students;
+            } else {
+                echo $class_position;
+            }
+            ?>
         </div>
     </div>
 
@@ -510,7 +554,15 @@ try {
         </div>
         <div class="overall-item">
             <div class="overall-label">CLASS POSITION</div>
-            <div class="overall-value"><?php echo $class_position; ?></div>
+            <div class="overall-value">
+                <?php 
+                if ($class_position !== '-' && $total_students > 0) {
+                    echo $class_position . '<span style="font-size: 16px;"> / ' . $total_students . '</span>';
+                } else {
+                    echo $class_position;
+                }
+                ?>
+            </div>
         </div>
     </div>
 
@@ -527,17 +579,18 @@ try {
     </div>
 
     <!-- COMMENTS -->
-     <div class="comment-box">
+    <div class="comments-section">
+        <div class="comment-box">
             <h4>CLASS TEACHER'S COMMENTS:</h4>
-            <div style="min-height: 60px;">
-                <?php echo $class_teacher_comment ? htmlspecialchars($class_teacher_comment) : '<span style="color: #888; font-style: italic;">[Comments to be added by class teacher]</span>'; ?>
+            <div class="comment-placeholder">
+                [Comments to be added by class teacher]
             </div>
         </div>
         
         <div class="comment-box">
             <h4>PRINCIPAL'S COMMENTS:</h4>
-            <div style="min-height: 60px;">
-                <?php echo $principal_comment ? htmlspecialchars($principal_comment) : '<span style="color: #888; font-style: italic;">[Comments to be added by principal]</span>'; ?>
+            <div class="comment-placeholder">
+                [Comments to be added by principal]
             </div>
         </div>
         

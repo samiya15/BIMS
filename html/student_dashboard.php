@@ -21,44 +21,40 @@ $student_stmt = $pdo->prepare("
 $student_stmt->execute([$_SESSION['user_id']]);
 $student = $student_stmt->fetch(PDO::FETCH_ASSOC);
 
-$student_name = ($student['first_name'] ?? 'Student') . ' ' . ($student['last_name'] ?? '');
+if (!$student) {
+    die("Student profile not found. Please contact administrator.");
+}
 
-/* ---------- GET ALL RELEASED REPORT CARDS ---------- */
+$student_name = htmlspecialchars($student['first_name'] . ' ' . $student['last_name']);
+$student_id = (int)$student['id']; // THIS IS CRITICAL - get the actual student ID
+
+/* ---------- GET ALL AVAILABLE REPORT CARDS ---------- */
 $current_year = (int)date('Y');
-$years = range($student['year_of_enrollment'], $current_year);
+$years = range($student['year_of_enrollment'] ?? $current_year, $current_year);
 $terms = ['Term 1', 'Term 2', 'Term 3'];
 $assessments = ['Opener', 'Mid-Term', 'End-Term'];
 
-// Check which report cards are RELEASED
+// Check which report cards exist
 $existing_reports = [];
 $reports_check = $pdo->prepare("
-    SELECT DISTINCT 
-        gs.academic_year, 
-        gs.term, 
-        gs.assessment_type, 
-        COUNT(DISTINCT g.subject_name) as subject_count
-    FROM grade_submissions gs
-    JOIN grades g ON gs.student_id = g.student_id 
-        AND gs.academic_year = g.academic_year 
-        AND gs.term = g.term 
-        AND gs.assessment_type = g.assessment_type
-    WHERE gs.student_id = ? 
-        AND gs.status = 'RELEASED'
-    GROUP BY gs.academic_year, gs.term, gs.assessment_type
-    HAVING COUNT(DISTINCT g.subject_name) > 0
-    ORDER BY gs.academic_year DESC, 
-        CASE gs.term 
+    SELECT DISTINCT academic_year, term, assessment_type, COUNT(DISTINCT subject_name) as subject_count
+    FROM grades
+    WHERE student_id = ?
+    GROUP BY academic_year, term, assessment_type
+    HAVING COUNT(DISTINCT subject_name) > 0
+    ORDER BY academic_year DESC, 
+        CASE term 
             WHEN 'Term 3' THEN 3 
             WHEN 'Term 2' THEN 2 
             WHEN 'Term 1' THEN 1 
         END DESC,
-        CASE gs.assessment_type
+        CASE assessment_type
             WHEN 'End-Term' THEN 3
             WHEN 'Mid-Term' THEN 2
             WHEN 'Opener' THEN 1
         END DESC
 ");
-$reports_check->execute([$student['id']]);
+$reports_check->execute([$student_id]); // Use $student_id not $student['id']
 $reports_raw = $reports_check->fetchAll(PDO::FETCH_ASSOC);
 
 foreach ($reports_raw as $report) {
@@ -146,8 +142,8 @@ if (!empty($student['admission_number'])) {
             gap: 15px;
         }
         .report-card-link {
-            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
-            color: white;
+            background: linear-gradient(135deg, #f4c430 0%, #ddb300 100%);
+            color: var(--black);
             padding: 20px;
             border-radius: 8px;
             text-decoration: none;
@@ -160,8 +156,8 @@ if (!empty($student['admission_number'])) {
         }
         .report-card-link:hover {
             transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
-            border-color: white;
+            box-shadow: 0 6px 20px rgba(244, 196, 48, 0.4);
+            border-color: var(--navy);
         }
         .report-icon {
             font-size: 32px;
@@ -176,23 +172,27 @@ if (!empty($student['admission_number'])) {
         }
         .report-subtitle {
             font-size: 12px;
-            opacity: 0.9;
+            opacity: 0.8;
         }
         .report-count {
             font-size: 11px;
-            background: rgba(255,255,255,0.3);
+            background: rgba(0,0,0,0.1);
             padding: 3px 8px;
             border-radius: 12px;
             margin-top: 5px;
             display: inline-block;
         }
-        .released-badge {
-            background: #4caf50;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            margin-left: 10px;
+        
+        @media (max-width: 768px) {
+            .reports-grid {
+                grid-template-columns: 1fr;
+            }
+            .report-card-link {
+                padding: 15px;
+            }
+            .report-icon {
+                font-size: 24px;
+            }
         }
     </style>
 </head>
@@ -213,15 +213,15 @@ if (!empty($student['admission_number'])) {
             <div class="student-info-grid">
                 <div class="info-item">
                     <span class="info-label">Admission Number:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($student['admission_number']); ?></span>
+                    <span class="info-value"><?php echo htmlspecialchars($student['admission_number'] ?? '-'); ?></span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Class:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($student['class_name'] ?? 'Not Assigned'); ?></span>
+                    <span class="info-value"><?php echo $student['class_name'] !== null ? htmlspecialchars($student['class_name']) : 'Not Assigned'; ?></span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Curriculum:</span>
-                    <span class="info-value"><?php echo htmlspecialchars($student['curriculum_name'] ?? 'Not Assigned'); ?></span>
+                    <span class="info-value"><?php echo $student['curriculum_name'] !== null ? htmlspecialchars($student['curriculum_name']) : 'Not Assigned'; ?></span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Status:</span>
@@ -234,15 +234,11 @@ if (!empty($student['admission_number'])) {
 
         <!-- MY REPORT CARDS -->
         <div class="card">
-            <h2>📄 My Report Cards <span class="released-badge">✅ Released Reports Only</span></h2>
-            <p style="color: #666; margin-bottom: 20px;">Click on any report card to view and print your results. Only approved reports are shown here.</p>
+            <h2>📄 My Report Cards</h2>
+            <p style="color: #666; margin-bottom: 20px;">Click on any report card to view and print your results for that specific assessment</p>
 
             <?php if (empty($existing_reports)): ?>
-                <div style="text-align: center; padding: 60px 20px; background: #f9f9f9; border-radius: 8px;">
-                    <div style="font-size: 64px; margin-bottom: 20px;">📋</div>
-                    <h3 style="color: var(--navy); margin-bottom: 10px;">No Report Cards Available Yet</h3>
-                    <p style="color: #666;">Your teacher will upload your grades soon. Once the Head Teacher approves them, your report cards will appear here.</p>
-                </div>
+                <p class="no-data">No report cards available yet. Your teacher will upload your grades soon.</p>
             <?php else: ?>
                 <?php foreach (array_reverse($years) as $year_index => $year): ?>
                     <?php if (isset($existing_reports[$year])): ?>
@@ -260,19 +256,23 @@ if (!empty($student['admission_number'])) {
                                             <div class="reports-grid">
                                                 <?php foreach ($assessments as $assessment): ?>
                                                     <?php if (isset($existing_reports[$year][$term][$assessment])): ?>
-                                                      
-                                                        <a href="teacher/view_report_card.php?student_id=<?php echo $student['id']; ?> &curriculum=<?php echo urlencode($student['curriculum_name']); ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
+                                                        <?php
+                                                        // Determine correct report card file based on curriculum
+                                                        $report_file = ($student['curriculum_name'] == '8-4-4') 
+                                                            ? 'teacher/view_report_card_844.php' 
+                                                            : 'teacher/view_report_card.php';
+                                                        ?>
+                                                        <a href="<?php echo $report_file; ?>?student_id=<?php echo $student_id; ?>&year=<?php echo $year; ?>&term=<?php echo urlencode($term); ?>&assessment=<?php echo urlencode($assessment); ?>" 
                                                            class="report-card-link"
                                                            target="_blank">
                                                             <span class="report-icon">📄</span>
                                                             <div class="report-details">
-                                                                <div class="report-title"><?php echo $assessment; ?></div>
-                                                                <div class="report-subtitle"><?php echo $year; ?> - <?php echo $term; ?></div>
+                                                                <div class="report-title"><?php echo htmlspecialchars($assessment); ?></div>
+                                                                <div class="report-subtitle"><?php echo $year; ?> - <?php echo htmlspecialchars($term); ?></div>
                                                                 <div class="report-count"><?php echo $existing_reports[$year][$term][$assessment]; ?> subjects</div>
                                                             </div>
                                                             <span style="font-size: 24px;">→</span>
                                                         </a>
-                                                        
                                                     <?php endif; ?>
                                                 <?php endforeach; ?>
                                             </div>
@@ -295,11 +295,11 @@ if (!empty($student['admission_number'])) {
                         <div class="parent-card">
                             <div class="parent-icon">👤</div>
                             <div class="parent-info">
-                                <h4><?php echo htmlspecialchars($parent['first_name'] . ' ' . $parent['last_name']); ?></h4>
+                                <h4><?php echo htmlspecialchars(($parent['first_name'] ?? '') . ' ' . ($parent['last_name'] ?? '')); ?></h4>
                                 <?php if ($parent['relationship']): ?>
                                     <p class="parent-relationship"><?php echo htmlspecialchars($parent['relationship']); ?></p>
                                 <?php endif; ?>
-                                <p class="parent-contact">📧 <?php echo htmlspecialchars($parent['email']); ?></p>
+                                <p class="parent-contact">📧 <?php echo htmlspecialchars($parent['email'] ?? ''); ?></p>
                                 <?php if ($parent['phone_number']): ?>
                                     <p class="parent-contact">📱 <?php echo htmlspecialchars($parent['phone_number']); ?></p>
                                 <?php endif; ?>

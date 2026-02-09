@@ -127,10 +127,7 @@ if (!empty($parent['linked_students'])) {
                             
                             <div class="child-actions">
                                 <a href="parent/view_child_grades.php?student_id=<?php echo $student['id']; ?>" class="btn-view-grades">
-                                    📊 View Grades
-                                </a>
-                                <a href="teacher/view_report_card.php?student_id=<?php echo $student['id']; ?>" class="btn-view-report">
-                                    📄 View Report Card
+                                    📊 View All Grades & Reports
                                 </a>
                             </div>
                         </div>
