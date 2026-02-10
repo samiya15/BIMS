@@ -47,7 +47,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     // Code is valid - store reset ID in session and redirect to new password page
                     $_SESSION['reset_id'] = $reset['id'];
                     $_SESSION['reset_user_id'] = $user['id'];
-                    header("Location: reset_password_new.php");
+                    header("Location: reset_password.php");
                     exit;
                 } else {
                     // Check if code exists but is expired
@@ -372,6 +372,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <div class="email-display">
             <?php echo htmlspecialchars($email); ?>
         </div>
+        
+        <?php if (isset($_SESSION['reset_code_display'])): ?>
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 8px;">
+                <strong>⚠️ Email Delivery Failed - Development Mode</strong><br>
+                <p style="margin: 10px 0; font-size: 14px;">Your reset code is: <strong style="font-size: 24px; color: #0b1c2d; font-family: monospace;"><?php echo $_SESSION['reset_code_display']; unset($_SESSION['reset_code_display']); ?></strong></p>
+                <p style="font-size: 12px; color: #666;">In production, this would be sent via email. Check /logs/email_log.txt for details.</p>
+            </div>
+        <?php endif; ?>
         
         <div class="divider"></div>
         

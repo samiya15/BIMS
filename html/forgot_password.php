@@ -23,10 +23,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 VALUES (?, ?, ?)
             ")->execute([$user['id'], $token, $expires]);
 
-            sendMail($email, "Password Reset Code", "Your password reset code is: $token\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.");
+            $email_body = "Your password reset code is: $token\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.";
+            $email_sent = sendMail($email, "Password Reset Code", $email_body);
             
-            // Store email in session and redirect to verification page
+            // Store email in session
             $_SESSION['reset_email'] = $email;
+            
+            // If email failed, store code in session for display (DEV MODE ONLY)
+            if (!$email_sent) {
+                $_SESSION['reset_code_display'] = $token;
+                error_log("Email failed. Code: $token for $email");
+            }
+            
             header("Location: verify_reset_code.php");
             exit;
         } else {

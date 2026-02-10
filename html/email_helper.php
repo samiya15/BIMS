@@ -1,96 +1,66 @@
 <?php
 /**
- * Simple Email Helper for Password Reset
- * 
- * NOTE: This uses PHP's built-in mail() function which may not work on all servers.
- * For production, consider using PHPMailer or similar library with SMTP.
+ * Email Helper Function
+ * Sends emails using PHP's mail() function with logging fallback
  */
 
-function sendPasswordResetEmail($to_email, $reset_link, $token_code) {
-    $subject = "Password Reset Request - BIMS";
+function sendMail($to, $subject, $message) {
+    $headers = "From: BIMS <noreply@school.com>\r\n";
+    $headers .= "Reply-To: noreply@school.com\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
+    $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
     
-    $message = "
-    <html>
-    <head>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #0b1c2d; color: white; padding: 20px; text-align: center; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 8px; margin-top: 20px; }
-            .button { display: inline-block; background: #f4c430; color: #0b1c2d; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
-            .code-box { background: white; padding: 15px; border-left: 4px solid #f4c430; font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0; }
-            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
-        </style>
-    </head>
-    <body>
-        <div class='container'>
-            <div class='header'>
-                <h1>BIMS - Password Reset</h1>
-            </div>
-            <div class='content'>
-                <h2>Password Reset Request</h2>
-                <p>Hello,</p>
-                <p>We received a request to reset your password for your BIMS account (<strong>" . htmlspecialchars($to_email) . "</strong>).</p>
-                
-                <p><strong>Option 1: Click the link below to reset your password:</strong></p>
-                <p style='text-align: center;'>
-                    <a href='" . htmlspecialchars($reset_link) . "' class='button'>Reset Password</a>
-                </p>
-                <p style='font-size: 12px; color: #666;'>Link: " . htmlspecialchars($reset_link) . "</p>
-                
-                <p><strong>Option 2: Use this reset code:</strong></p>
-                <div class='code-box'>" . htmlspecialchars($token_code) . "</div>
-                
-                <p><strong>⚠️ Important:</strong></p>
-                <ul>
-                    <li>This link and code expire in <strong>30 minutes</strong></li>
-                    <li>If you didn't request this reset, please ignore this email</li>
-                    <li>Your password won't change until you complete the reset process</li>
-                </ul>
-            </div>
-            <div class='footer'>
-                <p>This is an automated email from BIMS. Please do not reply.</p>
-                <p>&copy; " . date('Y') . " BIMS - School Management System</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    ";
+    // Try to send email
+    $sent = @mail($to, $subject, $message, $headers);
     
-    // Headers for HTML email
-    $headers = "MIME-Version: 1.0" . "\r\n";
-    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-    $headers .= "From: BIMS <noreply@school.com>" . "\r\n";
+    // Log the email attempt (useful for debugging)
+    $log_dir = __DIR__ . '/../logs';
+    if (!file_exists($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+    }
     
-    // ALWAYS log to file regardless of email success
-    logPasswordResetEmail($to_email, $reset_link, $token_code);
-    
-    // Try to send email (will likely fail on most servers)
-    $result = @mail($to_email, $subject, $message, $headers);
-    
-    return $result;
-}
-
-/**
- * Alternative: Log email to file for testing
- * Use this if mail() doesn't work on your server
- */
-function logPasswordResetEmail($to_email, $reset_link, $token_code) {
-    // Use system temp directory (works on Windows and Linux)
-    $log_file = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'password_reset_emails.log';
-    
-    // No need to create directory, temp always exists
-    
+    $log_file = $log_dir . '/email_log.txt';
     $log_entry = sprintf(
-        "[%s] Password Reset Email\nTo: %s\nReset Link: %s\nReset Code: %s\n%s\n",
+        "[%s] To: %s | Subject: %s | Sent: %s\nMessage: %s\n%s\n",
         date('Y-m-d H:i:s'),
-        $to_email,
-        $reset_link,
-        $token_code,
+        $to,
+        $subject,
+        $sent ? 'YES' : 'NO',
+        $message,
         str_repeat('-', 80)
     );
     
-    file_put_contents($log_file, $log_entry, FILE_APPEND);
+    @file_put_contents($log_file, $log_entry, FILE_APPEND);
     
-    return true;
+    // If email fails, also write to a separate "failed" log
+    if (!$sent) {
+        $failed_log = $log_dir . '/email_failed.txt';
+        @file_put_contents($failed_log, $log_entry, FILE_APPEND);
+        
+        // Display the code in the failed log for manual retrieval
+        error_log("Email failed to send. Check: " . $failed_log);
+    }
+    
+    return $sent;
+}
+
+/**
+ * Alternative: Get the latest reset code for a user (for testing/debugging)
+ * This should NOT be exposed in production
+ */
+function getLatestResetCode($pdo, $email) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT pr.token, pr.expires_at
+            FROM password_resets pr
+            JOIN users u ON pr.user_id = u.id
+            WHERE u.email = ?
+            ORDER BY pr.created_at DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$email]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        return null;
+    }
 }
