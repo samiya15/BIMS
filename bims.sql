@@ -53,8 +53,7 @@ CREATE TABLE `assessments` (
   `curriculum_type_id` int NOT NULL,
   `subject_id` int NOT NULL,
   `term_id` int NOT NULL,
-  `assessment_type` varchar(50) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `assessment_type` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `max_score` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `curriculum_type_id` (`curriculum_type_id`),
@@ -63,8 +62,7 @@ CREATE TABLE `assessments` (
   CONSTRAINT `assessments_ibfk_1` FOREIGN KEY (`curriculum_type_id`) REFERENCES `curriculum_types` (`id`),
   CONSTRAINT `assessments_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects_learning_areas` (`id`),
   CONSTRAINT `assessments_ibfk_3` FOREIGN KEY (`term_id`) REFERENCES `terms` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -114,14 +112,12 @@ DROP TABLE IF EXISTS `classes_levels`;
 CREATE TABLE `classes_levels` (
   `id` int NOT NULL AUTO_INCREMENT,
   `curriculum_type_id` int NOT NULL,
-  `name` varchar(50) COLLATE utf8mb4_general_ci
- NOT NULL,
+  `name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
   `level_order` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `curriculum_type_id` (`curriculum_type_id`),
   CONSTRAINT `classes_levels_ibfk_1` FOREIGN KEY (`curriculum_type_id`) REFERENCES `curriculum_types` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -171,14 +167,11 @@ DROP TABLE IF EXISTS `curriculum_types`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `curriculum_types` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) COLLATE utf8mb4_general_ci
- NOT NULL,
-  `description` varchar(255) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -231,7 +224,7 @@ CREATE TABLE `grade_submissions` (
 
 LOCK TABLES `grade_submissions` WRITE;
 /*!40000 ALTER TABLE `grade_submissions` DISABLE KEYS */;
-INSERT INTO `grade_submissions` VALUES (1,1,2,2023,'Term 1','Opener',1,'2026-01-21 09:01:00',NULL,NULL,NULL,NULL,NULL,'PENDING',NULL,NULL),(2,1,2,2026,'Term 1','Opener',1,'2026-02-02 16:33:47',1,'2026-02-02 16:32:42','You have performed exceptionally well! keep up the good work.','keep it up james!',NULL,'RELEASED','2026-02-02 16:33:47','2026-02-02 16:34:43'),(3,2,2,2026,'Term 1','Opener',1,'2026-02-03 08:17:31',1,'2026-02-03 08:15:16','Well done, Amanda!','keep up the good work',NULL,'RELEASED','2026-02-03 08:17:31','2026-02-03 08:17:54'),(4,4,6,2026,'Term 1','Opener',1,'2026-02-03 15:41:39',1,'2026-02-03 15:40:59','well done','you can do better in maths and geography',NULL,'RELEASED','2026-02-03 15:41:39','2026-02-03 15:42:30'),(6,2,2,2026,'Term 1','End-Term',1,'2026-02-06 08:41:15',NULL,NULL,'wonderful work. keep it up!',NULL,NULL,'AWAITING_PRINCIPAL','2026-02-06 08:41:15',NULL);
+INSERT INTO `grade_submissions` VALUES (1,1,2,2023,'Term 1','Opener',1,'2026-01-21 09:01:00',NULL,NULL,NULL,NULL,NULL,'PENDING',NULL,NULL),(2,1,2,2026,'Term 1','Opener',1,'2026-02-02 16:33:47',1,'2026-02-02 16:32:42','You have performed exceptionally well! keep up the good work.','keep it up james!',NULL,'RELEASED','2026-02-02 16:33:47','2026-02-02 16:34:43'),(3,2,2,2026,'Term 1','Opener',1,'2026-02-03 08:17:31',1,'2026-02-03 08:15:16','Well done, Amanda!','keep up the good work',NULL,'RELEASED','2026-02-03 08:17:31','2026-02-03 08:17:54'),(4,4,6,2026,'Term 1','Opener',1,'2026-02-03 15:41:39',1,'2026-02-03 15:40:59','well done','you can do better in maths and geography',NULL,'RELEASED','2026-02-03 15:41:39','2026-02-03 15:42:30'),(6,2,2,2026,'Term 1','End-Term',1,'2026-02-06 08:41:15',NULL,NULL,'wonderful work. keep it up!','good attempt',NULL,'RELEASED','2026-02-06 08:41:15','2026-02-08 16:58:55');
 /*!40000 ALTER TABLE `grade_submissions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -340,6 +333,45 @@ INSERT INTO `igcse_grading_scale` VALUES (1,'A*',90,100,9,1),(2,'A',80,89,8,2),(
 UNLOCK TABLES;
 
 --
+-- Table structure for table `parent_comments`
+--
+
+DROP TABLE IF EXISTS `parent_comments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `parent_comments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `student_id` int NOT NULL,
+  `parent_id` int NOT NULL,
+  `academic_year` int NOT NULL,
+  `term` enum('Term 1','Term 2','Term 3') NOT NULL,
+  `assessment_type` varchar(50) NOT NULL,
+  `comment` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_parent_comment` (`student_id`,`parent_id`,`academic_year`,`term`,`assessment_type`),
+  KEY `idx_student` (`student_id`),
+  KEY `idx_parent` (`parent_id`),
+  KEY `idx_period` (`academic_year`,`term`,`assessment_type`),
+  KEY `idx_student_year` (`student_id`,`academic_year`),
+  KEY `idx_parent_student` (`parent_id`,`student_id`),
+  CONSTRAINT `parent_comments_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `parent_comments_ibfk_2` FOREIGN KEY (`parent_id`) REFERENCES `parents` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `parent_comments`
+--
+
+LOCK TABLES `parent_comments` WRITE;
+/*!40000 ALTER TABLE `parent_comments` DISABLE KEYS */;
+INSERT INTO `parent_comments` VALUES (1,2,1,2026,'Term 1','End-Term','well done Amanda','2026-02-08 16:57:36','2026-02-08 16:57:36');
+/*!40000 ALTER TABLE `parent_comments` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `parent_student`
 --
 
@@ -350,15 +382,13 @@ CREATE TABLE `parent_student` (
   `id` int NOT NULL AUTO_INCREMENT,
   `parent_id` int NOT NULL,
   `student_id` int NOT NULL,
-  `relationship` varchar(50) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `relationship` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `parent_id` (`parent_id`,`student_id`),
   KEY `student_id` (`student_id`),
   CONSTRAINT `parent_student_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `parents` (`id`),
   CONSTRAINT `parent_student_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -380,25 +410,17 @@ DROP TABLE IF EXISTS `parents`;
 CREATE TABLE `parents` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
-  `first_name` varchar(100) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `last_name` varchar(100) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `phone` varchar(20) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `linked_students` text COLLATE utf8mb4_general_ci
- COMMENT 'Comma-separated admission numbers',
-  `phone_number` varchar(20) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `residential_area` varchar(255) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `relationship` varchar(50) COLLATE utf8mb4_general_ci
- DEFAULT NULL COMMENT 'Father, Mother, Guardian, etc.',
+  `first_name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `last_name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `phone` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `linked_students` text COLLATE utf8mb4_general_ci COMMENT 'Comma-separated admission numbers',
+  `phone_number` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `residential_area` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `relationship` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT 'Father, Mother, Guardian, etc.',
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   CONSTRAINT `parents_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -409,6 +431,41 @@ LOCK TABLES `parents` WRITE;
 /*!40000 ALTER TABLE `parents` DISABLE KEYS */;
 INSERT INTO `parents` VALUES (1,5,'Sarah','Adam',NULL,'1234,4321,7890','','','Mother');
 /*!40000 ALTER TABLE `parents` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `password_reset_tokens`
+--
+
+DROP TABLE IF EXISTS `password_reset_tokens`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `password_reset_tokens` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `token` varchar(64) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `used` tinyint(1) DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `used_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `idx_token` (`token`),
+  KEY `idx_email` (`email`),
+  KEY `idx_expires` (`expires_at`),
+  CONSTRAINT `password_reset_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `password_reset_tokens`
+--
+
+LOCK TABLES `password_reset_tokens` WRITE;
+/*!40000 ALTER TABLE `password_reset_tokens` DISABLE KEYS */;
+INSERT INTO `password_reset_tokens` VALUES (1,15,'istami.sami34@gmail.com','2ced539f6bc7b9944c70a8e04d882e7b4001c75b327b832a040c41ee6805b9bd','2026-02-08 11:58:16',0,'2026-02-08 11:28:16',NULL),(2,15,'istami.sami34@gmail.com','13d940916bc3069e397f1992305cf141a932f97b90d946fa450d403bf65fe4ef','2026-02-08 11:59:41',0,'2026-02-08 11:29:41',NULL),(3,15,'istami.sami34@gmail.com','8fccb1710a9f972f170c418c86a893f6e2a74557639ff34c8e36569ed23780a7','2026-02-08 12:00:46',0,'2026-02-08 11:30:46',NULL),(4,15,'istami.sami34@gmail.com','56799e83d5897489a9e4e8c48bce71f8910cc088fcb0b2cb51d2db38891874fd','2026-02-08 12:05:59',0,'2026-02-08 11:35:59',NULL),(5,15,'istami.sami34@gmail.com','bdb8b81c4dce67f5314391ca0e477b8646b481c69bf93ec913e95b8f9ca62bc2','2026-02-08 12:08:02',0,'2026-02-08 11:38:02',NULL),(6,15,'istami.sami34@gmail.com','778880d3cc9dc3817d0f635847dd032e140ad3f831670304660f3d931cbfbe33','2026-02-08 12:08:05',0,'2026-02-08 11:38:05',NULL),(7,15,'istami.sami34@gmail.com','55825417d8a785a2bf28c8c11ff95cdf11975febd9a85ccaf027a2ad7ac5861a','2026-02-08 12:09:48',0,'2026-02-08 11:39:48',NULL),(8,15,'istami.sami34@gmail.com','c1ec51466bf4e0a6d59f05958898e2f42554c1d064b4567b3c55563075d94535','2026-02-08 12:09:56',0,'2026-02-08 11:39:56',NULL),(9,15,'istami.sami34@gmail.com','6add3a9f6392f73ee6d040ba070ca8e33ba689f9844b830124460a47bd01c80b','2026-02-08 12:17:24',0,'2026-02-08 11:47:24',NULL),(10,15,'istami.sami34@gmail.com','98a80d314b112e1956143007770b4913fc5be3792ca894627b773067a0af5361','2026-02-08 12:20:25',0,'2026-02-08 11:50:25',NULL),(11,15,'istami.sami34@gmail.com','bf3bf3fc56970081e4d4e35ce0e717a5e34d38a0557f87fabb8dfbd0daf69e50','2026-02-08 12:29:15',0,'2026-02-08 11:59:15',NULL),(12,15,'istami.sami34@gmail.com','9aa944d94cfb3db235aa5732b89a59c9802497fb99b0dac2ff13d94e40c5187a','2026-02-08 12:29:22',1,'2026-02-08 11:59:22','2026-02-08 12:00:02');
+/*!40000 ALTER TABLE `password_reset_tokens` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -502,17 +559,14 @@ CREATE TABLE `results` (
   `student_id` int NOT NULL,
   `assessment_id` int NOT NULL,
   `score` decimal(5,2) DEFAULT NULL,
-  `grade` varchar(10) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `remarks` varchar(255) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `grade` varchar(10) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `remarks` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `student_id` (`student_id`,`assessment_id`),
   KEY `assessment_id` (`assessment_id`),
   CONSTRAINT `results_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`),
   CONSTRAINT `results_ibfk_2` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -533,14 +587,11 @@ DROP TABLE IF EXISTS `roles`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `roles` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) COLLATE utf8mb4_general_ci
- NOT NULL,
-  `description` varchar(255) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -591,28 +642,19 @@ DROP TABLE IF EXISTS `students`;
 CREATE TABLE `students` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
-  `admission_number` varchar(50) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `first_name` varchar(100) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `last_name` varchar(100) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `gender` enum('Male','Female') COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `admission_number` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `first_name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `last_name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `gender` enum('Male','Female') COLLATE utf8mb4_general_ci DEFAULT NULL,
   `date_of_birth` date DEFAULT NULL,
   `curriculum_type_id` int NOT NULL,
   `class_level_id` int NOT NULL,
-  `status` enum('active','inactive') COLLATE utf8mb4_general_ci
- DEFAULT 'active',
+  `status` enum('active','inactive') COLLATE utf8mb4_general_ci DEFAULT 'active',
   `year_of_enrollment` int DEFAULT NULL,
-  `phone_number` varchar(20) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `residential_area` varchar(255) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `parent_phone` varchar(20) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `parent_email` varchar(100) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `phone_number` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `residential_area` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `parent_phone` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `parent_email` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   UNIQUE KEY `admission_number` (`admission_number`),
@@ -622,8 +664,7 @@ CREATE TABLE `students` (
   CONSTRAINT `students_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `students_ibfk_2` FOREIGN KEY (`curriculum_type_id`) REFERENCES `curriculum_types` (`id`),
   CONSTRAINT `students_ibfk_3` FOREIGN KEY (`class_level_id`) REFERENCES `classes_levels` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -646,15 +687,12 @@ DROP TABLE IF EXISTS `subjects_learning_areas`;
 CREATE TABLE `subjects_learning_areas` (
   `id` int NOT NULL AUTO_INCREMENT,
   `curriculum_type_id` int NOT NULL,
-  `name` varchar(100) COLLATE utf8mb4_general_ci
- NOT NULL,
-  `code` varchar(20) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
+  `code` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `curriculum_type_id` (`curriculum_type_id`),
   CONSTRAINT `subjects_learning_areas_ibfk_1` FOREIGN KEY (`curriculum_type_id`) REFERENCES `curriculum_types` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -736,31 +774,22 @@ DROP TABLE IF EXISTS `teachers`;
 CREATE TABLE `teachers` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
-  `first_name` varchar(100) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `last_name` varchar(100) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `email` varchar(100) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `phone` varchar(20) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `category` enum('Subject Teacher','Class Teacher','Head Teacher') COLLATE utf8mb4_general_ci
- DEFAULT 'Subject Teacher',
+  `first_name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `last_name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `email` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `phone` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `category` enum('Subject Teacher','Class Teacher','Head Teacher') COLLATE utf8mb4_general_ci DEFAULT 'Subject Teacher',
   `assigned_class_id` int DEFAULT NULL,
-  `phone_number` varchar(20) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
-  `residential_area` varchar(255) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `phone_number` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `residential_area` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `date_of_birth` date DEFAULT NULL,
-  `national_id` varchar(50) COLLATE utf8mb4_general_ci
- DEFAULT NULL,
+  `national_id` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   KEY `assigned_class_id` (`assigned_class_id`),
   CONSTRAINT `teachers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `teachers_ibfk_2` FOREIGN KEY (`assigned_class_id`) REFERENCES `classes_levels` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -782,13 +811,10 @@ DROP TABLE IF EXISTS `terms`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `terms` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) COLLATE utf8mb4_general_ci
- NOT NULL,
-  `academic_year` varchar(20) COLLATE utf8mb4_general_ci
- NOT NULL,
+  `name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
+  `academic_year` varchar(20) COLLATE utf8mb4_general_ci NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -809,20 +835,16 @@ DROP TABLE IF EXISTS `users`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `email` varchar(100) COLLATE utf8mb4_general_ci
- NOT NULL,
-  `password` varchar(255) COLLATE utf8mb4_general_ci
- NOT NULL,
+  `email` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `role_id` int NOT NULL,
-  `status` enum('active','inactive') COLLATE utf8mb4_general_ci
- DEFAULT 'active',
+  `status` enum('active','inactive') COLLATE utf8mb4_general_ci DEFAULT 'active',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
   KEY `role_id` (`role_id`),
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -831,7 +853,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'admin@school.com','$2y$10$Tc0R/lGfDi46G.UNdFHG.OlfOsVLM9/ekbb02EnmAvk41PDmMiZCm',1,'active','2026-01-08 13:07:15'),(2,'student@school.com','$2y$10$97o47nUNxoXqXfC5lVKXhOxqxJveNd6e68rbrUsGczwUu0/TayHhi',3,'active','2026-01-12 08:40:04'),(4,'teacher@school.com','$2y$10$Ck.NG6KDNM.1azZfVoXLce5N11ixvsyoAyz4q9NJCuW/93Yc235vm',2,'active','2026-01-12 08:45:37'),(5,'parent@school.com','$2y$10$.u2HwSRAkNfhnW4tkw/eruqKGJU3nAO1YM/I8s7RZWuBJHtSFVB4W',4,'active','2026-01-12 08:46:18'),(6,'igcse@school.com','$2y$10$SswvrmcGgsabo60bhj91QuPo4VZNLLKZFzLIgmN9IRCZN.w/3RAvO',3,'active','2026-01-15 19:40:11'),(8,'844@school.com','$2y$10$zAhTnFgCgLaIlcQNKTnrPu.vfivdm7KrGz3kyQdt/mvgioqJXoi/C',3,'active','2026-01-15 19:40:58'),(9,'cbe@school.com','$2y$10$BN/bcXVFRu3q0RZpkBZr1.VeSvpZNQvWa536VXEMbUXG4SFbHAaai',3,'active','2026-01-15 19:44:33'),(10,'c.teacher@school.com','$2y$10$YXw0EIVYJOfXfa/laTngeOLJn35Nwf2ayizweABJ2NrCPHJyuY1Si',2,'active','2026-01-19 12:38:29'),(11,'h.teacher@school.com','$2y$10$R9hHCHNe09oE2sxCZbHOwOzM5Br8ocbFv/0m5inHv8TBrE1/JPo5O',2,'active','2026-01-29 16:49:02'),(12,'st1@school.com','$2y$10$G10jLTVnLkRe15fVRpeoqOT6Az2PL7t6/D8dmXmc/K.gEoORmB.2C',2,'active','2026-01-30 09:04:29'),(13,'st2@school.com','$2y$10$GTjceVhAILpcgjmRoHe7WuAQOtMUBsglewbd/mwv5KCFqciqDElHC',2,'active','2026-01-30 09:04:48'),(14,'st3@school.com','$2y$10$og6cTulA3yjFG6THLW38kOTVt1hoPbifSaKrocaZj5osESZMhSL4O',2,'active','2026-01-30 09:05:06');
+INSERT INTO `users` VALUES (1,'admin@school.com','$2y$10$Tc0R/lGfDi46G.UNdFHG.OlfOsVLM9/ekbb02EnmAvk41PDmMiZCm',1,'active','2026-01-08 13:07:15'),(2,'student@school.com','$2y$10$97o47nUNxoXqXfC5lVKXhOxqxJveNd6e68rbrUsGczwUu0/TayHhi',3,'active','2026-01-12 08:40:04'),(4,'teacher@school.com','$2y$10$Ck.NG6KDNM.1azZfVoXLce5N11ixvsyoAyz4q9NJCuW/93Yc235vm',2,'active','2026-01-12 08:45:37'),(5,'parent@school.com','$2y$10$.u2HwSRAkNfhnW4tkw/eruqKGJU3nAO1YM/I8s7RZWuBJHtSFVB4W',4,'active','2026-01-12 08:46:18'),(6,'igcse@school.com','$2y$10$SswvrmcGgsabo60bhj91QuPo4VZNLLKZFzLIgmN9IRCZN.w/3RAvO',3,'active','2026-01-15 19:40:11'),(8,'844@school.com','$2y$10$zAhTnFgCgLaIlcQNKTnrPu.vfivdm7KrGz3kyQdt/mvgioqJXoi/C',3,'active','2026-01-15 19:40:58'),(9,'cbe@school.com','$2y$10$BN/bcXVFRu3q0RZpkBZr1.VeSvpZNQvWa536VXEMbUXG4SFbHAaai',3,'active','2026-01-15 19:44:33'),(10,'c.teacher@school.com','$2y$10$YXw0EIVYJOfXfa/laTngeOLJn35Nwf2ayizweABJ2NrCPHJyuY1Si',2,'active','2026-01-19 12:38:29'),(11,'h.teacher@school.com','$2y$10$R9hHCHNe09oE2sxCZbHOwOzM5Br8ocbFv/0m5inHv8TBrE1/JPo5O',2,'active','2026-01-29 16:49:02'),(12,'st1@school.com','$2y$10$G10jLTVnLkRe15fVRpeoqOT6Az2PL7t6/D8dmXmc/K.gEoORmB.2C',2,'active','2026-01-30 09:04:29'),(13,'st2@school.com','$2y$10$GTjceVhAILpcgjmRoHe7WuAQOtMUBsglewbd/mwv5KCFqciqDElHC',2,'active','2026-01-30 09:04:48'),(14,'st3@school.com','$2y$10$og6cTulA3yjFG6THLW38kOTVt1hoPbifSaKrocaZj5osESZMhSL4O',2,'active','2026-01-30 09:05:06'),(15,'istami.sami34@gmail.com','$2y$10$Cr2LsJLQit40C2byPAzgWe.mAsp1c7SbtP3Sot3k3EMuvFQLhtQmu',1,'active','2026-02-08 11:27:40');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -844,4 +866,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-06 12:46:35
+-- Dump completed on 2026-02-10  8:31:32
