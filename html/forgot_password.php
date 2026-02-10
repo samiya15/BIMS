@@ -3,213 +3,326 @@ session_start();
 require_once __DIR__ . "/../database/db_connect.php";
 require_once __DIR__ . "/email_helper.php";
 
-$message = '';
 $error = '';
+$success = '';
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $email = trim($_POST['email']);
-    
-    // Check if email exists
-    $stmt = $pdo->prepare("SELECT id, email FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($user) {
-        try {
-            // Generate secure token
-            $token = bin2hex(random_bytes(32)); // 64 character token
-            $expires_at = date('Y-m-d H:i:s', strtotime('+30 minutes'));
+
+    try {
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+
+        if ($user) {
+            $token = rand(100000, 999999);
+            $expires = date("Y-m-d H:i:s", strtotime("+10 minutes"));
+
+            $pdo->prepare("
+                INSERT INTO password_resets (user_id, token, expires_at)
+                VALUES (?, ?, ?)
+            ")->execute([$user['id'], $token, $expires]);
+
+            sendMail($email, "Password Reset Code", "Your password reset code is: $token\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, please ignore this email.");
             
-            // Store token in database
-            $insert = $pdo->prepare("
-                INSERT INTO password_reset_tokens (user_id, email, token, expires_at)
-                VALUES (?, ?, ?, ?)
-            ");
-            $insert->execute([$user['id'], $email, $token, $expires_at]);
-            
-            // Create reset link
-            $reset_link = "http://" . $_SERVER['HTTP_HOST'] . "/reset_password.php?token=" . $token;
-            
-            // Generate a shorter code for manual entry (6 digits from token)
-            $token_code = strtoupper(substr($token, 0, 6));
-            
-            // Send email (also logs to file automatically)
-            $email_sent = sendPasswordResetEmail($email, $reset_link, $token_code);
-            
-            $message = "✅ Password reset instructions have been sent. Check the file: " . sys_get_temp_dir() . DIRECTORY_SEPARATOR . "password_reset_emails.log";
-            
-        } catch (PDOException $e) {
-            $error = "Error processing request. Please try again.";
+            // Store email in session and redirect to verification page
+            $_SESSION['reset_email'] = $email;
+            header("Location: verify_reset_code.php");
+            exit;
+        } else {
+            // Don't reveal if email exists or not (security best practice)
+            // Still redirect to verify page
+            $_SESSION['reset_email'] = $email;
+            header("Location: verify_reset_code.php");
+            exit;
         }
-    } else {
-        // Don't reveal if email exists or not (security)
-        $message = "✅ If an account exists with that email, password reset instructions have been sent.";
+    } catch (PDOException $e) {
+        $error = "An error occurred. Please try again.";
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password - BIMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        
         body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0b1c2d 0%, #1a3a52 50%, #0b1c2d 100%);
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 20px;
+            position: relative;
+            overflow: hidden;
         }
+        
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(244, 196, 48, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(244, 196, 48, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
         .forgot-container {
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            padding: 50px 45px;
+            border-radius: 20px;
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
             width: 100%;
-            max-width: 450px;
+            max-width: 440px;
+            position: relative;
+            animation: slideUp 0.6s ease-out;
         }
-        h2 {
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .forgot-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, #f4c430, #ddb300, #f4c430);
+            border-radius: 0 0 2px 2px;
+        }
+        
+        .header {
             text-align: center;
+            margin-bottom: 35px;
+        }
+        
+        .icon {
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #0b1c2d, #1a3a52);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 8px 20px rgba(11, 28, 45, 0.3);
+        }
+        
+        h1 {
+            font-family: 'Playfair Display', serif;
             color: #0b1c2d;
+            font-size: 26px;
+            font-weight: 700;
             margin-bottom: 10px;
         }
+        
         .subtitle {
-            text-align: center;
             color: #666;
             font-size: 14px;
-            margin-bottom: 30px;
+            line-height: 1.6;
         }
+        
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+            margin: 30px 0;
+        }
+        
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
+        
         label {
             display: block;
-            margin-bottom: 5px;
-            color: #555;
-            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+            letter-spacing: 0.3px;
         }
+        
         input[type="email"] {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-            transition: border-color 0.3s;
+            padding: 14px 18px;
+            border: 2px solid #e5e5e5;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+            background: #fafafa;
         }
+        
         input[type="email"]:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #f4c430;
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(244, 196, 48, 0.1);
         }
+        
         button {
             width: 100%;
-            padding: 12px;
-            background: #667eea;
+            padding: 15px;
+            background: linear-gradient(135deg, #0b1c2d 0%, #1a3a52 100%);
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 10px;
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 600;
             cursor: pointer;
-            transition: background 0.3s;
-        }
-        button:hover {
-            background: #5568d3;
-        }
-        .success {
-            background: #d4edda;
-            color: #155724;
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-            border-left: 4px solid #28a745;
-        }
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-            border-left: 4px solid #dc3545;
-        }
-        .back-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-        .back-link a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .back-link a:hover {
-            text-decoration: underline;
-        }
-        .info-box {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
             font-size: 14px;
-            color: #0d47a1;
-            border-left: 4px solid #2196f3;
+            box-shadow: 0 4px 15px rgba(11, 28, 45, 0.3);
+            position: relative;
+            overflow: hidden;
         }
-        .info-box ul {
-            margin-left: 20px;
-            margin-top: 10px;
+        
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(244, 196, 48, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        button:hover::before {
+            left: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(11, 28, 45, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .error {
+            background: linear-gradient(135deg, #fee, #fdd);
+            color: #c33;
+            padding: 12px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+            border-left: 4px solid #c33;
+            animation: shake 0.5s ease;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        
+        .info-box {
+            background: #f0f8ff;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .help-text {
+            text-align: center;
+            font-size: 13px;
+            color: #666;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+        }
+        
+        .help-text a {
+            color: #0b1c2d;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+        
+        .help-text a:hover {
+            color: #f4c430;
+        }
+        
+        @media (max-width: 480px) {
+            .forgot-container {
+                padding: 40px 30px;
+            }
+            
+            h1 {
+                font-size: 22px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="forgot-container">
-        <h2>🔐 Forgot Password?</h2>
-        <p class="subtitle">Enter your email address and we'll send you reset instructions</p>
+        <div class="header">
+            <div class="icon">🔒</div>
+            <h1>Forgot Password?</h1>
+            <p class="subtitle">No worries! We'll send you a reset code</p>
+        </div>
         
-        <?php if ($message): ?>
-            <div class="success"><?php echo $message; ?></div>
-        <?php endif; ?>
+        <div class="divider"></div>
         
         <?php if ($error): ?>
-            <div class="error"><?php echo $error; ?></div>
+            <div class="error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
         
-        <?php if (!$message): ?>
-            <form method="POST">
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" name="email" required placeholder="your-email@school.com" autofocus>
-                </div>
-                
-                <button type="submit">Send Reset Instructions</button>
-            </form>
+        <div class="info-box">
+            📧 Enter your email address and we'll send you a 6-digit verification code to reset your password.
+        </div>
+        
+        <form method="POST" action="">
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" 
+                       name="email" 
+                       placeholder="your.email@school.com"
+                       required
+                       autofocus>
+            </div>
             
-            <div class="info-box">
-                <strong>ℹ️ What happens next?</strong>
-                <ul>
-                    <li>You'll receive an email with a reset link</li>
-                    <li>The link expires in 30 minutes</li>
-                    <li>You can also use the 6-digit code provided</li>
-                </ul>
-            </div>
-        <?php else: ?>
-            <div class="info-box">
-                <strong>📧 Check your email!</strong>
-                <p style="margin-top: 10px;">
-                    If you don't see the email in your inbox, please check your spam/junk folder.
-                </p>
-            </div>
-        <?php endif; ?>
+            <button type="submit">Send Reset Code</button>
+        </form>
         
-        <div class="back-link">
-            <a href="login.php">← Back to Login</a>
+        <div class="help-text">
+            Remember your password? <a href="login.php">Sign in</a>
         </div>
     </div>
 </body>
