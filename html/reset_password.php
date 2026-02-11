@@ -5,50 +5,75 @@ require_once __DIR__ . "/../database/db_connect.php";
 $error = '';
 $success = '';
 
-// Check if reset is verified
-if (!isset($_SESSION['reset_id']) || !isset($_SESSION['reset_user_id'])) {
+// Check if email is set in session
+if (!isset($_SESSION['reset_email'])) {
     header("Location: forgot_password.php");
     exit;
 }
 
-$reset_id = $_SESSION['reset_id'];
-$user_id = $_SESSION['reset_user_id'];
+$email = $_SESSION['reset_email'];
 
-/* ---------- HANDLE NEW PASSWORD SUBMISSION ---------- */
+/* ---------- HANDLE CODE VERIFICATION ---------- */
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $new_password = $_POST['new_password'];
-    $confirm_password = $_POST['confirm_password'];
+    $code = trim($_POST['code']);
     
-    if (empty($new_password) || empty($confirm_password)) {
-        $error = "Please fill in all fields.";
-    } elseif (strlen($new_password) < 6) {
-        $error = "Password must be at least 6 characters long.";
-    } elseif ($new_password !== $confirm_password) {
-        $error = "Passwords do not match.";
+    if (empty($code)) {
+        $error = "Please enter the verification code.";
     } else {
         try {
-            // Hash the new password
-            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+            // Get user ID from email
+            $user_stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+            $user_stmt->execute([$email]);
+            $user = $user_stmt->fetch();
             
-            // Update user's password
-            $update_stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
-            $update_stmt->execute([$hashed_password, $user_id]);
-            
-            // Mark reset token as used
-            $mark_used = $pdo->prepare("UPDATE password_resets SET used = 1 WHERE id = ?");
-            $mark_used->execute([$reset_id]);
-            
-            // Clear session
-            unset($_SESSION['reset_id']);
-            unset($_SESSION['reset_user_id']);
-            unset($_SESSION['reset_email']);
-            
-            $success = "Password reset successful! Redirecting to login...";
-            
-            // Redirect after 2 seconds
-            header("refresh:2;url=login.php");
+            if (!$user) {
+                $error = "Invalid session. Please start over.";
+            } else {
+                // Check if code is valid and not expired
+                // IMPORTANT: Compare with NOW() in database timezone
+                $stmt = $pdo->prepare("
+                    SELECT id, token, expires_at 
+                    FROM password_resets 
+                    WHERE user_id = ? 
+                    AND code = ? 
+                    AND expires_at > NOW()
+                    AND used = 0
+                    ORDER BY created_at DESC 
+                    LIMIT 1
+                ");
+                $stmt->execute([$user['id'], $code]);
+                $reset = $stmt->fetch();
+                
+                if ($reset) {
+                    // Code is valid!
+                    $_SESSION['reset_id'] = $reset['id'];
+                    $_SESSION['reset_user_id'] = $user['id'];
+                    header("Location: reset_password_new.php");
+                    exit;
+                } else {
+                    // Check if code exists but is expired
+                    $expired_stmt = $pdo->prepare("
+                        SELECT id, expires_at, NOW() as current_time
+                        FROM password_resets 
+                        WHERE user_id = ? 
+                        AND code = ?
+                        ORDER BY created_at DESC 
+                        LIMIT 1
+                    ");
+                    $expired_stmt->execute([$user['id'], $code]);
+                    $expired = $expired_stmt->fetch();
+                    
+                    if ($expired) {
+                        error_log("Code expired: expires_at={$expired['expires_at']}, current={$expired['current_time']}");
+                        $error = "This code has expired. Please request a new one.";
+                    } else {
+                        $error = "Invalid verification code. Please check and try again.";
+                    }
+                }
+            }
         } catch (PDOException $e) {
-            $error = "Error updating password. Please try again.";
+            error_log("Verify code error: " . $e->getMessage());
+            $error = "Database error. Please try again.";
         }
     }
 }
@@ -59,15 +84,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password - BIMS</title>
+    <title>Verify Code - BIMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #0b1c2d 0%, #1a3a52 50%, #0b1c2d 100%);
@@ -76,66 +96,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             align-items: center;
             justify-content: center;
             padding: 20px;
-            position: relative;
-            overflow: hidden;
         }
-        
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                radial-gradient(circle at 20% 50%, rgba(244, 196, 48, 0.03) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(244, 196, 48, 0.03) 0%, transparent 50%);
-            pointer-events: none;
-        }
-        
-        .reset-container {
+        .verify-container {
             background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(20px);
             padding: 50px 45px;
             border-radius: 20px;
-            box-shadow: 
-                0 20px 60px rgba(0, 0, 0, 0.4),
-                0 0 0 1px rgba(255, 255, 255, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
             width: 100%;
             max-width: 440px;
-            position: relative;
-            animation: slideUp 0.6s ease-out;
         }
-        
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .reset-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 4px;
-            background: linear-gradient(90deg, #f4c430, #ddb300, #f4c430);
-            border-radius: 0 0 2px 2px;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 35px;
-        }
-        
         .icon {
             width: 70px;
             height: 70px;
@@ -146,79 +115,93 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             align-items: center;
             justify-content: center;
             font-size: 32px;
-            box-shadow: 0 8px 20px rgba(11, 28, 45, 0.3);
         }
-        
         h1 {
             font-family: 'Playfair Display', serif;
             color: #0b1c2d;
+            text-align: center;
             font-size: 26px;
-            font-weight: 700;
             margin-bottom: 10px;
         }
-        
-        .subtitle {
-            color: #666;
-            font-size: 14px;
-            line-height: 1.6;
+        .subtitle { text-align: center; color: #666; font-size: 14px; }
+        .email-display {
+            background: #f0f0f0;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            font-weight: 600;
+            color: #0b1c2d;
+            border: 2px dashed #ddd;
         }
-        
-        .divider {
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
-            margin: 30px 0;
+        .dev-mode-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
         }
-        
-        .form-group {
-            margin-bottom: 25px;
+        .code-display {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            text-align: center;
         }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-            font-size: 14px;
-            letter-spacing: 0.3px;
+        .code-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0b1c2d;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 4px;
         }
-        
-        input[type="password"] {
+        .link-display {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        .link-display a {
+            color: #2196f3;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .divider { height: 1px; background: #e0e0e0; margin: 30px 0; }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            border-left: 4px solid #c33;
+        }
+        label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px; }
+        .code-input {
             width: 100%;
-            padding: 14px 18px;
+            padding: 16px;
             border: 2px solid #e5e5e5;
             border-radius: 10px;
-            font-size: 15px;
-            font-family: 'Inter', sans-serif;
-            transition: all 0.3s ease;
-            background: #fafafa;
+            font-size: 24px;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            letter-spacing: 8px;
+            font-weight: 600;
+            margin-bottom: 15px;
         }
-        
-        input[type="password"]:focus {
+        .code-input:focus {
             outline: none;
             border-color: #f4c430;
-            background: #fff;
             box-shadow: 0 0 0 4px rgba(244, 196, 48, 0.1);
         }
-        
-        .password-requirements {
-            background: #f0f8ff;
-            border-left: 4px solid #2196f3;
-            padding: 12px 15px;
+        .timer {
+            text-align: center;
             margin: 15px 0;
-            border-radius: 6px;
             font-size: 13px;
-            color: #333;
+            color: #666;
         }
-        
-        .password-requirements ul {
-            margin: 8px 0 0 20px;
-            padding: 0;
-        }
-        
-        .password-requirements li {
-            margin: 4px 0;
-        }
-        
+        .timer.expired { color: #c33; font-weight: 600; }
         button {
             width: 100%;
             padding: 15px;
@@ -226,128 +209,62 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             color: white;
             border: none;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 0.5px;
             text-transform: uppercase;
-            font-size: 14px;
-            box-shadow: 0 4px 15px rgba(11, 28, 45, 0.3);
-            position: relative;
-            overflow: hidden;
+            letter-spacing: 0.5px;
         }
-        
-        button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(244, 196, 48, 0.3), transparent);
-            transition: left 0.5s ease;
-        }
-        
-        button:hover::before {
-            left: 100%;
-        }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(11, 28, 45, 0.4);
-        }
-        
-        button:active {
-            transform: translateY(0);
-        }
-        
-        .error {
-            background: linear-gradient(135deg, #fee, #fdd);
-            color: #c33;
-            padding: 12px 18px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 14px;
-            border-left: 4px solid #c33;
-            animation: shake 0.5s ease;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-        
-        .success {
-            background: linear-gradient(135deg, #efe, #dfd);
-            color: #3c3;
-            padding: 12px 18px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 14px;
-            border-left: 4px solid #3c3;
-        }
-        
+        button:hover { transform: translateY(-2px); }
         .help-text {
             text-align: center;
             font-size: 13px;
-            color: #666;
             margin-top: 20px;
             padding-top: 20px;
             border-top: 1px solid #f0f0f0;
         }
-        
         .help-text a {
             color: #0b1c2d;
             text-decoration: none;
             font-weight: 600;
-            transition: color 0.3s;
-        }
-        
-        .help-text a:hover {
-            color: #f4c430;
-        }
-        
-        .password-strength {
-            height: 4px;
-            background: #e0e0e0;
-            border-radius: 2px;
-            margin-top: 8px;
-            overflow: hidden;
-        }
-        
-        .password-strength-bar {
-            height: 100%;
-            width: 0%;
-            transition: all 0.3s ease;
-            border-radius: 2px;
-        }
-        
-        .strength-weak { background: #f44336; width: 33%; }
-        .strength-medium { background: #ff9800; width: 66%; }
-        .strength-strong { background: #4caf50; width: 100%; }
-        
-        @media (max-width: 480px) {
-            .reset-container {
-                padding: 40px 30px;
-            }
-            
-            h1 {
-                font-size: 22px;
-            }
         }
     </style>
 </head>
 <body>
-    <div class="reset-container">
-        <div class="header">
-            <div class="icon">🔑</div>
-            <h1>Create New Password</h1>
-            <p class="subtitle">Choose a strong password for your account</p>
+    <div class="verify-container">
+        <div class="icon">🔐</div>
+        <h1>Check Your Email</h1>
+        <p class="subtitle">We sent you reset options</p>
+        
+        <div class="email-display">
+            <?php echo htmlspecialchars($email); ?>
         </div>
+        
+        <?php if (isset($_SESSION['reset_code_display']) || isset($_SESSION['reset_link_display'])): ?>
+            <div class="dev-mode-box">
+                <strong>⚠️ Development Mode - Email Delivery Failed</strong>
+                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                    In production, you would receive an email. Here are your reset options:
+                </p>
+                
+                <?php if (isset($_SESSION['reset_code_display'])): ?>
+                    <div class="code-display">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">6-Digit Code:</div>
+                        <div class="code-number"><?php echo $_SESSION['reset_code_display']; unset($_SESSION['reset_code_display']); ?></div>
+                        <div style="font-size: 11px; color: #999; margin-top: 5px;">Enter this below ↓</div>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_SESSION['reset_link_display'])): ?>
+                    <div class="link-display">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Or click this link:</div>
+                        <a href="<?php echo $_SESSION['reset_link_display']; ?>" target="_blank">
+                            <?php echo $_SESSION['reset_link_display']; unset($_SESSION['reset_link_display']); ?>
+                        </a>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
         
         <div class="divider"></div>
         
@@ -355,89 +272,58 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <div class="error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
         
-        <?php if ($success): ?>
-            <div class="success"><?php echo htmlspecialchars($success); ?></div>
-        <?php else: ?>
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label>New Password</label>
-                    <input type="password" 
-                           name="new_password" 
-                           id="new_password"
-                           placeholder="Enter new password"
-                           required
-                           minlength="6"
-                           autofocus>
-                    <div class="password-strength">
-                        <div class="password-strength-bar" id="strength-bar"></div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Confirm New Password</label>
-                    <input type="password" 
-                           name="confirm_password" 
-                           id="confirm_password"
-                           placeholder="Re-enter new password"
-                           required
-                           minlength="6">
-                </div>
-                
-                <div class="password-requirements">
-                    <strong>Password Requirements:</strong>
-                    <ul>
-                        <li>At least 6 characters long</li>
-                        <li>Mix of letters and numbers recommended</li>
-                        <li>Avoid common passwords</li>
-                    </ul>
-                </div>
-                
-                <button type="submit">Reset Password</button>
-            </form>
-        <?php endif; ?>
+        <form method="POST">
+            <label>Enter 6-Digit Code</label>
+            <input type="text" 
+                   name="code" 
+                   class="code-input"
+                   placeholder="000000"
+                   maxlength="6"
+                   pattern="[0-9]{6}"
+                   inputmode="numeric"
+                   required
+                   autofocus>
+            
+            <div class="timer" id="timer">
+                Code expires in <span id="countdown">30:00</span>
+            </div>
+            
+            <button type="submit">Verify Code</button>
+        </form>
         
         <div class="help-text">
+            Didn't receive the email? <a href="forgot_password.php">Request new code</a><br>
             <a href="login.php">← Back to Login</a>
         </div>
     </div>
     
     <script>
-        // Password strength indicator
-        const passwordInput = document.getElementById('new_password');
-        const strengthBar = document.getElementById('strength-bar');
-        
-        passwordInput.addEventListener('input', function() {
-            const password = this.value;
-            let strength = 0;
-            
-            if (password.length >= 6) strength++;
-            if (password.length >= 10) strength++;
-            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-            if (/[0-9]/.test(password)) strength++;
-            if (/[^a-zA-Z0-9]/.test(password)) strength++;
-            
-            strengthBar.className = 'password-strength-bar';
-            
-            if (strength <= 2) {
-                strengthBar.classList.add('strength-weak');
-            } else if (strength <= 3) {
-                strengthBar.classList.add('strength-medium');
-            } else {
-                strengthBar.classList.add('strength-strong');
-            }
+        // Auto-format code input
+        const codeInput = document.querySelector('.code-input');
+        codeInput.addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
         });
         
-        // Validate passwords match
-        const form = document.querySelector('form');
-        form.addEventListener('submit', function(e) {
-            const password = document.getElementById('new_password').value;
-            const confirm = document.getElementById('confirm_password').value;
+        // Countdown timer (30 minutes)
+        let timeLeft = 1800;
+        const countdownEl = document.getElementById('countdown');
+        const timerEl = document.getElementById('timer');
+        
+        function updateTimer() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
-            if (password !== confirm) {
-                e.preventDefault();
-                alert('Passwords do not match!');
+            if (timeLeft <= 0) {
+                timerEl.innerHTML = '<span style="color: #c33; font-weight: 600;">⚠️ Code has expired. Please request a new one.</span>';
+                clearInterval(timerInterval);
             }
-        });
+            
+            timeLeft--;
+        }
+        
+        updateTimer();
+        const timerInterval = setInterval(updateTimer, 1000);
     </script>
 </body>
 </html>

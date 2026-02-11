@@ -1,0 +1,54 @@
+[2026-02-11 16:55:04] FAILED ❌
+  To: istami.sami34@gmail.com
+  Subject: Password Reset - Code & Link
+  Method: PHP mail()
+  Error: mail() returned false
+
+[2026-02-11 18:03:32] FAILED ❌
+  To: istami.sami34@gmail.com
+  Subject: BIMS Email Test
+  Method: PHP mail()
+  Error: mail() returned false
+
+[2026-02-11 18:07:01] FAILED ❌
+  To: istami.sami34@gmail.com
+  Subject: BIMS Email Test
+  Method: PHP mail()
+  Error: mail() returned false
+
+[2026-02-11 18:07:04] FAILED ❌
+  To: istami.sami34@gmail.com
+  Subject: BIMS Email Test
+  Method: PHP mail()
+  Error: mail() returned false
+
+[2026-02-11 18:09:05] FAILED ❌
+  To: istami.sami34@gmail.com
+  Subject: Password Reset - Code & Link
+  Method: PHP mail()
+  Error: mail() returned false
+
+[2026-02-11 18:10:01] FAILED ❌
+  To: istami.sami34@gmail.com
+  Subject: Password Reset - Code & Link
+  Method: PHP mail()
+  Error: mail() returned false
+
+[2026-02-11 18:10:56] FAILED ❌
+  To: istami.sami34@gmail.com
+  Subject: BIMS Email Test
+  Method: PHP mail()
+  Error: mail() returned false
+
+[2026-02-11 18:11:03] FAILED ❌
+  To: istami.sami34@gmail.com
+  Subject: BIMS Email Test
+  Method: PHP mail()
+  Error: mail() returned false
+
+[2026-02-11 18:20:21] FAILED ❌
+  To: admin@school.com
+  Subject: Password Reset - Code & Link
+  Method: PHP mail()
+  Error: mail() returned false
+

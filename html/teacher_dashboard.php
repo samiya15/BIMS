@@ -327,6 +327,9 @@ if ($category == 'Head Teacher') {
         <a href="teacher/review_student_reports.php">📋 Review Reports (<?php echo count($pending_reviews); ?>)</a>
     <?php endif; ?>
     <a href="logout.php">Logout</a>
+    <a href="teacher/generate_progress_report.php">
+    📊 Generate Progress Reports
+</a>
 </div>
 
 <div class="main-content">

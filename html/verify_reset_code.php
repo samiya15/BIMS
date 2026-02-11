@@ -5,7 +5,7 @@ require_once __DIR__ . "/../database/db_connect.php";
 $error = '';
 $success = '';
 
-// Check if email is set in session (from forgot_password.php)
+// Check if email is set in session
 if (!isset($_SESSION['reset_email'])) {
     header("Location: forgot_password.php");
     exit;
@@ -30,11 +30,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $error = "Invalid session. Please start over.";
             } else {
                 // Check if code is valid and not expired
+                // IMPORTANT: Compare with NOW() in database timezone
                 $stmt = $pdo->prepare("
                     SELECT id, token, expires_at 
                     FROM password_resets 
                     WHERE user_id = ? 
-                    AND token = ? 
+                    AND code = ? 
                     AND expires_at > NOW()
                     AND used = 0
                     ORDER BY created_at DESC 
@@ -44,7 +45,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $reset = $stmt->fetch();
                 
                 if ($reset) {
-                    // Code is valid - store reset ID in session and redirect to new password page
+                    // Code is valid!
                     $_SESSION['reset_id'] = $reset['id'];
                     $_SESSION['reset_user_id'] = $user['id'];
                     header("Location: reset_password.php");
@@ -52,16 +53,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 } else {
                     // Check if code exists but is expired
                     $expired_stmt = $pdo->prepare("
-                        SELECT id 
+                        SELECT id, expires_at, NOW() as current_time
                         FROM password_resets 
                         WHERE user_id = ? 
-                        AND token = ?
+                        AND code = ?
                         ORDER BY created_at DESC 
                         LIMIT 1
                     ");
                     $expired_stmt->execute([$user['id'], $code]);
+                    $expired = $expired_stmt->fetch();
                     
-                    if ($expired_stmt->fetch()) {
+                    if ($expired) {
+                        error_log("Code expired: expires_at={$expired['expires_at']}, current={$expired['current_time']}");
                         $error = "This code has expired. Please request a new one.";
                     } else {
                         $error = "Invalid verification code. Please check and try again.";
@@ -69,6 +72,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 }
             }
         } catch (PDOException $e) {
+            error_log("Verify code error: " . $e->getMessage());
             $error = "Database error. Please try again.";
         }
     }
@@ -83,12 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <title>Verify Code - BIMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #0b1c2d 0%, #1a3a52 50%, #0b1c2d 100%);
@@ -97,66 +96,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             align-items: center;
             justify-content: center;
             padding: 20px;
-            position: relative;
-            overflow: hidden;
         }
-        
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                radial-gradient(circle at 20% 50%, rgba(244, 196, 48, 0.03) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(244, 196, 48, 0.03) 0%, transparent 50%);
-            pointer-events: none;
-        }
-        
         .verify-container {
             background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(20px);
             padding: 50px 45px;
             border-radius: 20px;
-            box-shadow: 
-                0 20px 60px rgba(0, 0, 0, 0.4),
-                0 0 0 1px rgba(255, 255, 255, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
             width: 100%;
             max-width: 440px;
-            position: relative;
-            animation: slideUp 0.6s ease-out;
         }
-        
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .verify-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 4px;
-            background: linear-gradient(90deg, #f4c430, #ddb300, #f4c430);
-            border-radius: 0 0 2px 2px;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 35px;
-        }
-        
         .icon {
             width: 70px;
             height: 70px;
@@ -167,23 +115,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             align-items: center;
             justify-content: center;
             font-size: 32px;
-            box-shadow: 0 8px 20px rgba(11, 28, 45, 0.3);
         }
-        
         h1 {
             font-family: 'Playfair Display', serif;
             color: #0b1c2d;
+            text-align: center;
             font-size: 26px;
-            font-weight: 700;
             margin-bottom: 10px;
         }
-        
-        .subtitle {
-            color: #666;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        
+        .subtitle { text-align: center; color: #666; font-size: 14px; }
         .email-display {
             background: #f0f0f0;
             padding: 12px;
@@ -194,26 +134,50 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             color: #0b1c2d;
             border: 2px dashed #ddd;
         }
-        
-        .divider {
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
-            margin: 30px 0;
+        .dev-mode-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
         }
-        
-        .form-group {
-            margin-bottom: 25px;
+        .code-display {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            text-align: center;
         }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-            font-size: 14px;
-            letter-spacing: 0.3px;
+        .code-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0b1c2d;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 4px;
         }
-        
+        .link-display {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        .link-display a {
+            color: #2196f3;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .divider { height: 1px; background: #e0e0e0; margin: 30px 0; }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            border-left: 4px solid #c33;
+        }
+        label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px; }
         .code-input {
             width: 100%;
             padding: 16px;
@@ -224,23 +188,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             text-align: center;
             letter-spacing: 8px;
             font-weight: 600;
-            transition: all 0.3s ease;
-            background: #fafafa;
+            margin-bottom: 15px;
         }
-        
         .code-input:focus {
             outline: none;
             border-color: #f4c430;
-            background: #fff;
             box-shadow: 0 0 0 4px rgba(244, 196, 48, 0.1);
         }
-        
-        .code-input::placeholder {
-            letter-spacing: normal;
-            font-size: 14px;
-            font-family: 'Inter', sans-serif;
+        .timer {
+            text-align: center;
+            margin: 15px 0;
+            font-size: 13px;
+            color: #666;
         }
-        
+        .timer.expired { color: #c33; font-weight: 600; }
         button {
             width: 100%;
             padding: 15px;
@@ -248,136 +209,60 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             color: white;
             border: none;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 0.5px;
             text-transform: uppercase;
-            font-size: 14px;
-            box-shadow: 0 4px 15px rgba(11, 28, 45, 0.3);
-            position: relative;
-            overflow: hidden;
+            letter-spacing: 0.5px;
         }
-        
-        button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(244, 196, 48, 0.3), transparent);
-            transition: left 0.5s ease;
-        }
-        
-        button:hover::before {
-            left: 100%;
-        }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(11, 28, 45, 0.4);
-        }
-        
-        button:active {
-            transform: translateY(0);
-        }
-        
-        .error {
-            background: linear-gradient(135deg, #fee, #fdd);
-            color: #c33;
-            padding: 12px 18px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 14px;
-            border-left: 4px solid #c33;
-            animation: shake 0.5s ease;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-        
-        .success {
-            background: linear-gradient(135deg, #efe, #dfd);
-            color: #3c3;
-            padding: 12px 18px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 14px;
-            border-left: 4px solid #3c3;
-        }
-        
+        button:hover { transform: translateY(-2px); }
         .help-text {
             text-align: center;
             font-size: 13px;
-            color: #666;
             margin-top: 20px;
             padding-top: 20px;
             border-top: 1px solid #f0f0f0;
         }
-        
         .help-text a {
             color: #0b1c2d;
             text-decoration: none;
             font-weight: 600;
-            transition: color 0.3s;
-        }
-        
-        .help-text a:hover {
-            color: #f4c430;
-        }
-        
-        .timer {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 13px;
-            color: #666;
-        }
-        
-        .timer.expired {
-            color: #c33;
-            font-weight: 600;
-        }
-        
-        @media (max-width: 480px) {
-            .verify-container {
-                padding: 40px 30px;
-            }
-            
-            h1 {
-                font-size: 22px;
-            }
-            
-            .code-input {
-                font-size: 20px;
-                letter-spacing: 6px;
-            }
         }
     </style>
 </head>
 <body>
     <div class="verify-container">
-        <div class="header">
-            <div class="icon">🔐</div>
-            <h1>Verify Reset Code</h1>
-            <p class="subtitle">We sent a 6-digit code to your email</p>
-        </div>
+        <div class="icon">🔐</div>
+        <h1>Check Your Email</h1>
+        <p class="subtitle">We sent you reset options</p>
         
         <div class="email-display">
             <?php echo htmlspecialchars($email); ?>
         </div>
         
-        <?php if (isset($_SESSION['reset_code_display'])): ?>
-            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 8px;">
-                <strong>⚠️ Email Delivery Failed - Development Mode</strong><br>
-                <p style="margin: 10px 0; font-size: 14px;">Your reset code is: <strong style="font-size: 24px; color: #0b1c2d; font-family: monospace;"><?php echo $_SESSION['reset_code_display']; unset($_SESSION['reset_code_display']); ?></strong></p>
-                <p style="font-size: 12px; color: #666;">In production, this would be sent via email. Check /logs/email_log.txt for details.</p>
+        <?php if (isset($_SESSION['reset_code_display']) || isset($_SESSION['reset_link_display'])): ?>
+            <div class="dev-mode-box">
+                <strong>⚠️ Development Mode - Email Delivery Failed</strong>
+                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                    In production, you would receive an email. Here are your reset options:
+                </p>
+                
+                <?php if (isset($_SESSION['reset_code_display'])): ?>
+                    <div class="code-display">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">6-Digit Code:</div>
+                        <div class="code-number"><?php echo $_SESSION['reset_code_display']; unset($_SESSION['reset_code_display']); ?></div>
+                        <div style="font-size: 11px; color: #999; margin-top: 5px;">Enter this below ↓</div>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_SESSION['reset_link_display'])): ?>
+                    <div class="link-display">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Or click this link:</div>
+                        <a href="<?php echo $_SESSION['reset_link_display']; ?>" target="_blank">
+                            <?php echo $_SESSION['reset_link_display']; unset($_SESSION['reset_link_display']); ?>
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
         
@@ -387,46 +272,40 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <div class="error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
         
-        <?php if ($success): ?>
-            <div class="success"><?php echo htmlspecialchars($success); ?></div>
-        <?php endif; ?>
-        
-        <form method="POST" action="">
-            <div class="form-group">
-                <label>Enter 6-Digit Code</label>
-                <input type="text" 
-                       name="code" 
-                       class="code-input"
-                       placeholder="000000"
-                       maxlength="6"
-                       pattern="[0-9]{6}"
-                       inputmode="numeric"
-                       required
-                       autofocus>
-            </div>
+        <form method="POST">
+            <label>Enter 6-Digit Code</label>
+            <input type="text" 
+                   name="code" 
+                   class="code-input"
+                   placeholder="000000"
+                   maxlength="6"
+                   pattern="[0-9]{6}"
+                   inputmode="numeric"
+                   required
+                   autofocus>
             
             <div class="timer" id="timer">
-                Code expires in <span id="countdown">10:00</span>
+                Code expires in <span id="countdown">30:00</span>
             </div>
             
             <button type="submit">Verify Code</button>
         </form>
         
         <div class="help-text">
-            Didn't receive the code? <a href="forgot_password.php">Request new code</a><br>
+            Didn't receive the email? <a href="forgot_password.php">Request new code</a><br>
             <a href="login.php">← Back to Login</a>
         </div>
     </div>
     
     <script>
-        // Auto-format code input (digits only, max 6)
+        // Auto-format code input
         const codeInput = document.querySelector('.code-input');
         codeInput.addEventListener('input', function(e) {
             this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
         });
         
-        // Countdown timer (10 minutes)
-        let timeLeft = 600; // 10 minutes in seconds
+        // Countdown timer (30 minutes)
+        let timeLeft = 1800;
         const countdownEl = document.getElementById('countdown');
         const timerEl = document.getElementById('timer');
         
