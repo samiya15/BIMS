@@ -23,11 +23,10 @@ use PHPMailer\PHPMailer\Exception;
  */
 function sendEmail($to, $subject, $body, $html = null) {
     // Create logs directory if it doesn't exist
-    $log_dir = __DIR__ . '/logs';
-    if (!is_dir($log_dir)) {
-    mkdir($log_dir, 0755, true);
-}
-
+    $log_dir = '/var/www/logs';
+    if (!file_exists($log_dir)) {
+        @mkdir($log_dir, 0777, true);
+    }
     
     $log_file = $log_dir . '/email_log.txt';
     $failed_log = $log_dir . '/email_failed.txt';
@@ -79,8 +78,8 @@ function sendEmail($to, $subject, $body, $html = null) {
             
         } else {
             // Fallback to basic PHP mail() if PHPMailer not available
-            $headers = "From: NLA BIMS <noreply.nla.sc.ke@gmail.com>\r\n";
-            $headers .= "Reply-To: support@nla.sc.ke\r\n";
+            $headers = "From: NLA BIMS <noreply@nla.sc.ke>\r\n";
+            $headers .= "Reply-To: info@nla.sc.ke\r\n";
             
             if ($html !== null) {
                 $headers .= "MIME-Version: 1.0\r\n";

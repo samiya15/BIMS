@@ -19,7 +19,6 @@
 -- Table structure for table `assessment_types`
 --
 
-USE `pixelfor_bims_db`;
 DROP TABLE IF EXISTS `assessment_types`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -28,7 +27,7 @@ CREATE TABLE `assessment_types` (
   `name` varchar(50) NOT NULL,
   `display_order` int NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -89,7 +88,7 @@ CREATE TABLE `cbe_grading_scale` (
   `display_order` int NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `grade_code` (`grade_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -145,7 +144,7 @@ CREATE TABLE `curriculum_subjects` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_curriculum_subject` (`curriculum_type_id`,`subject_name`),
   CONSTRAINT `curriculum_subjects_ibfk_1` FOREIGN KEY (`curriculum_type_id`) REFERENCES `curriculum_types` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -215,7 +214,7 @@ CREATE TABLE `grade_submissions` (
   KEY `idx_submitted_at` (`submitted_to_principal_at`),
   CONSTRAINT `grade_submissions_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
   CONSTRAINT `grade_submissions_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -246,7 +245,7 @@ CREATE TABLE `grade_upload_permissions` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_permission` (`academic_year`,`term`,`assessment_type`,`curriculum_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -290,7 +289,7 @@ CREATE TABLE `grades` (
   KEY `idx_student_year_term` (`student_id`,`academic_year`,`term`),
   KEY `idx_student_year_term_assessment` (`student_id`,`academic_year`,`term`,`assessment_type`),
   CONSTRAINT `grades_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=76 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=76 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -319,7 +318,7 @@ CREATE TABLE `igcse_grading_scale` (
   `display_order` int NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `grade_code` (`grade_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -358,7 +357,7 @@ CREATE TABLE `parent_comments` (
   KEY `idx_parent_student` (`parent_id`,`student_id`),
   CONSTRAINT `parent_comments_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
   CONSTRAINT `parent_comments_ibfk_2` FOREIGN KEY (`parent_id`) REFERENCES `parents` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -455,7 +454,7 @@ CREATE TABLE `password_reset_tokens` (
   KEY `idx_email` (`email`),
   KEY `idx_expires` (`expires_at`),
   CONSTRAINT `password_reset_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -464,7 +463,7 @@ CREATE TABLE `password_reset_tokens` (
 
 LOCK TABLES `password_reset_tokens` WRITE;
 /*!40000 ALTER TABLE `password_reset_tokens` DISABLE KEYS */;
-INSERT INTO `password_reset_tokens` VALUES (1,15,'istami.sami34@gmail.com','2ced539f6bc7b9944c70a8e04d882e7b4001c75b327b832a040c41ee6805b9bd','2026-02-08 11:58:16',0,'2026-02-08 11:28:16',NULL),(2,15,'istami.sami34@gmail.com','13d940916bc3069e397f1992305cf141a932f97b90d946fa450d403bf65fe4ef','2026-02-08 11:59:41',0,'2026-02-08 11:29:41',NULL),(3,15,'istami.sami34@gmail.com','8fccb1710a9f972f170c418c86a893f6e2a74557639ff34c8e36569ed23780a7','2026-02-08 12:00:46',0,'2026-02-08 11:30:46',NULL),(4,15,'istami.sami34@gmail.com','56799e83d5897489a9e4e8c48bce71f8910cc088fcb0b2cb51d2db38891874fd','2026-02-08 12:05:59',0,'2026-02-08 11:35:59',NULL),(5,15,'istami.sami34@gmail.com','bdb8b81c4dce67f5314391ca0e477b8646b481c69bf93ec913e95b8f9ca62bc2','2026-02-08 12:08:02',0,'2026-02-08 11:38:02',NULL),(6,15,'istami.sami34@gmail.com','778880d3cc9dc3817d0f635847dd032e140ad3f831670304660f3d931cbfbe33','2026-02-08 12:08:05',0,'2026-02-08 11:38:05',NULL),(7,15,'istami.sami34@gmail.com','55825417d8a785a2bf28c8c11ff95cdf11975febd9a85ccaf027a2ad7ac5861a','2026-02-08 12:09:48',0,'2026-02-08 11:39:48',NULL),(8,15,'istami.sami34@gmail.com','c1ec51466bf4e0a6d59f05958898e2f42554c1d064b4567b3c55563075d94535','2026-02-08 12:09:56',0,'2026-02-08 11:39:56',NULL),(9,15,'istami.sami34@gmail.com','6add3a9f6392f73ee6d040ba070ca8e33ba689f9844b830124460a47bd01c80b','2026-02-08 12:17:24',0,'2026-02-08 11:47:24',NULL),(10,15,'istami.sami34@gmail.com','98a80d314b112e1956143007770b4913fc5be3792ca894627b773067a0af5361','2026-02-08 12:20:25',0,'2026-02-08 11:50:25',NULL),(11,15,'istami.sami34@gmail.com','bf3bf3fc56970081e4d4e35ce0e717a5e34d38a0557f87fabb8dfbd0daf69e50','2026-02-08 12:29:15',0,'2026-02-08 11:59:15',NULL),(12,15,'istami.sami34@gmail.com','9aa944d94cfb3db235aa5732b89a59c9802497fb99b0dac2ff13d94e40c5187a','2026-02-08 12:29:22',1,'2026-02-08 11:59:22','2026-02-08 12:00:02');
+INSERT INTO `password_reset_tokens` VALUES (1,15,'istami.sami34@gmail.com','2ced539f6bc7b9944c70a8e04d882e7b4001c75b327b832a040c41ee6805b9bd','2026-02-08 11:58:16',0,'2026-02-08 11:28:16',NULL),(2,15,'istami.sami34@gmail.com','13d940916bc3069e397f1992305cf141a932f97b90d946fa450d403bf65fe4ef','2026-02-08 11:59:41',0,'2026-02-08 11:29:41',NULL),(3,15,'istami.sami34@gmail.com','8fccb1710a9f972f170c418c86a893f6e2a74557639ff34c8e36569ed23780a7','2026-02-08 12:00:46',0,'2026-02-08 11:30:46',NULL),(4,15,'istami.sami34@gmail.com','56799e83d5897489a9e4e8c48bce71f8910cc088fcb0b2cb51d2db38891874fd','2026-02-08 12:05:59',0,'2026-02-08 11:35:59',NULL),(5,15,'istami.sami34@gmail.com','bdb8b81c4dce67f5314391ca0e477b8646b481c69bf93ec913e95b8f9ca62bc2','2026-02-08 12:08:02',0,'2026-02-08 11:38:02',NULL),(6,15,'istami.sami34@gmail.com','778880d3cc9dc3817d0f635847dd032e140ad3f831670304660f3d931cbfbe33','2026-02-08 12:08:05',0,'2026-02-08 11:38:05',NULL),(7,15,'istami.sami34@gmail.com','55825417d8a785a2bf28c8c11ff95cdf11975febd9a85ccaf027a2ad7ac5861a','2026-02-08 12:09:48',0,'2026-02-08 11:39:48',NULL),(8,15,'istami.sami34@gmail.com','c1ec51466bf4e0a6d59f05958898e2f42554c1d064b4567b3c55563075d94535','2026-02-08 12:09:56',0,'2026-02-08 11:39:56',NULL),(9,15,'istami.sami34@gmail.com','6add3a9f6392f73ee6d040ba070ca8e33ba689f9844b830124460a47bd01c80b','2026-02-08 12:17:24',0,'2026-02-08 11:47:24',NULL),(10,15,'istami.sami34@gmail.com','98a80d314b112e1956143007770b4913fc5be3792ca894627b773067a0af5361','2026-02-08 12:20:25',0,'2026-02-08 11:50:25',NULL),(11,15,'istami.sami34@gmail.com','bf3bf3fc56970081e4d4e35ce0e717a5e34d38a0557f87fabb8dfbd0daf69e50','2026-02-08 12:29:15',0,'2026-02-08 11:59:15',NULL),(12,15,'istami.sami34@gmail.com','9aa944d94cfb3db235aa5732b89a59c9802497fb99b0dac2ff13d94e40c5187a','2026-02-08 12:29:22',1,'2026-02-08 11:59:22','2026-02-08 12:00:02'),(13,15,'istami.sami34@gmail.com','a435f10b3a535587479ba9627e4186fc0888bd273425942aac35dd92fbacb8bd','2026-02-10 11:33:21',0,'2026-02-10 11:03:21',NULL),(14,15,'istami.sami34@gmail.com','c424ad561ab28b169d5a2bbc57745014921d28bcd687dc433f6ce185c627dfb7','2026-02-10 11:33:29',0,'2026-02-10 11:03:29',NULL);
 /*!40000 ALTER TABLE `password_reset_tokens` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -478,12 +477,15 @@ DROP TABLE IF EXISTS `password_resets`;
 CREATE TABLE `password_resets` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
-  `token` varchar(255) DEFAULT NULL,
+  `token` varchar(255) DEFAULT NULL COMMENT 'Unique token for direct link reset',
+  `code` int NOT NULL,
   `expires_at` datetime DEFAULT NULL,
+  `used` tinyint(1) DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -492,6 +494,7 @@ CREATE TABLE `password_resets` (
 
 LOCK TABLES `password_resets` WRITE;
 /*!40000 ALTER TABLE `password_resets` DISABLE KEYS */;
+INSERT INTO `password_resets` VALUES (15,15,'fe19b53532aa10d0293848e33279a60b90dc663787f0c019bfbd8a68d8e9059b',259442,'2026-02-11 18:40:01',0,'2026-02-11 18:10:01'),(19,1,'8a6e2033c9bce9c8ab890493850ed32d7f7ae20c805d11a5922e8b99afe3813a',84777,'2026-02-15 14:31:53',0,'2026-02-15 14:01:53');
 /*!40000 ALTER TABLE `password_resets` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -534,7 +537,7 @@ CREATE TABLE `pci_assessments` (
   KEY `idx_student_year_term` (`student_id`,`academic_year`,`term`),
   CONSTRAINT `pci_assessments_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
   CONSTRAINT `pci_assessments_ibfk_2` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -619,7 +622,7 @@ CREATE TABLE `student_subjects` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_student_subject` (`student_id`,`subject_name`),
   CONSTRAINT `student_subjects_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=47 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=47 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -649,6 +652,7 @@ CREATE TABLE `students` (
   `date_of_birth` date DEFAULT NULL,
   `curriculum_type_id` int NOT NULL,
   `class_level_id` int NOT NULL,
+  `parent_id` int DEFAULT NULL,
   `status` enum('active','inactive') COLLATE utf8mb4_general_ci DEFAULT 'active',
   `year_of_enrollment` int DEFAULT NULL,
   `phone_number` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
@@ -661,6 +665,8 @@ CREATE TABLE `students` (
   UNIQUE KEY `unique_admission` (`admission_number`),
   KEY `curriculum_type_id` (`curriculum_type_id`),
   KEY `class_level_id` (`class_level_id`),
+  KEY `idx_parent_id` (`parent_id`),
+  CONSTRAINT `fk_students_parent` FOREIGN KEY (`parent_id`) REFERENCES `parents` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `students_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `students_ibfk_2` FOREIGN KEY (`curriculum_type_id`) REFERENCES `curriculum_types` (`id`),
   CONSTRAINT `students_ibfk_3` FOREIGN KEY (`class_level_id`) REFERENCES `classes_levels` (`id`)
@@ -673,7 +679,7 @@ CREATE TABLE `students` (
 
 LOCK TABLES `students` WRITE;
 /*!40000 ALTER TABLE `students` DISABLE KEYS */;
-INSERT INTO `students` VALUES (1,2,'1234','james','paul','Male','2014-07-17',1,4,'active',2023,'+254741234562','South C','+254712345678','parent@school.com'),(2,9,'4321','Amanda ','Adams','Female','2013-08-14',1,4,'active',2024,'+254766432121','Westlands','+254755443311','parent@school.com'),(4,8,'5678','Fatma','Ahmed','Female','2006-02-08',2,8,'active',2023,'+254784321256','South B','+254768889543','parent@school.com'),(5,6,'7890','Ahmed','Issa','Male','2007-02-06',3,11,'active',2025,'+254798989898','Kilimani','+254768889543','parent@school.com');
+INSERT INTO `students` VALUES (1,2,'1234','james','paul','Male','2014-07-17',1,4,NULL,'active',2023,'+254741234562','South C','+254712345678','parent@school.com'),(2,9,'4321','Amanda ','Adams','Female','2013-08-14',1,4,NULL,'active',2024,'+254766432121','Westlands','+254755443311','parent@school.com'),(4,8,'5678','Fatma','Ahmed','Female','2006-02-08',2,8,NULL,'active',2023,'+254784321256','South B','+254768889543','parent@school.com'),(5,6,'7890','Ahmed','Issa','Male','2007-02-06',3,11,NULL,'active',2025,'+254798989898','Kilimani','+254768889543','parent@school.com');
 /*!40000 ALTER TABLE `students` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -720,7 +726,7 @@ CREATE TABLE `system_844_grading_scale` (
   `display_order` int NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `grade_code` (`grade_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -751,7 +757,7 @@ CREATE TABLE `teacher_subjects` (
   KEY `curriculum_type_id` (`curriculum_type_id`),
   CONSTRAINT `teacher_subjects_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `teacher_subjects_ibfk_2` FOREIGN KEY (`curriculum_type_id`) REFERENCES `curriculum_types` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -866,4 +872,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-10  8:31:32
+-- Dump completed on 2026-02-15 14:59:31

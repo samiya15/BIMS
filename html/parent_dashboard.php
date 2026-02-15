@@ -71,6 +71,9 @@ if (!empty($parent['linked_students'])) {
     <a href="parent_dashboard.php" class="active">Dashboard</a>
     <a href="parent/my_profile.php">My Profile</a>
     <a href="parent/my_children.php">My Children</a>
+    <a href="parent_progress_reports.php">
+    📊 Student Progress Reports
+</a>
     <a href="logout.php">Logout</a>
 </div>
 
